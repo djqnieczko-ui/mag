@@ -54,6 +54,7 @@
               <th>Dni do zwrotu</th>
               <th>Status</th>
               <th>Pozycji</th>
+              <th>Akcja</th>
             </tr>
           </thead>
           <tbody id="orders-body"></tbody>
@@ -61,102 +62,28 @@
       </div>
     </section>
 
-    <section class="card selected-order-card">
+    <section class="card orders-help-card">
       <div class="section-header">
         <div>
-          <h2>Szczegoly wybranego WZ</h2>
-          <p class="muted" id="selected-order-meta">Wybierz dokument z listy po lewej stronie.</p>
-        </div>
-        <div class="order-actions">
-          <span id="selected-order-status" class="status-badge status-neutral">Brak wyboru</span>
-          <button type="button" class="btn btn-light" id="save-order-changes" disabled>Zapisz zmiany</button>
-          <button type="button" class="btn btn-primary" id="receive-return" disabled>Przyjmij zwrot</button>
+          <h2>Obsluga dokumentu</h2>
+          <p class="muted">Wybierz listę WZ z tabeli, aby przejsc do osobnej podstrony ustawien.</p>
         </div>
       </div>
-
-      <form id="selected-order-form">
-        <div class="grid">
-          <label>
-            Nazwa kontrahenta
-            <input type="text" id="edit-contractor-name" placeholder="np. Event Pro Sp. z o.o." />
-          </label>
-          <label>
-            Osoba kontaktowa
-            <input type="text" id="edit-contractor-contact" placeholder="np. Jan Kowalski" />
-          </label>
-          <label>
-            Telefon
-            <input type="text" id="edit-contractor-phone" placeholder="np. 600 700 800" />
-          </label>
-          <label>
-            Email
-            <input type="email" id="edit-contractor-email" placeholder="np. biuro@firma.pl" />
-          </label>
-          <label>
-            Deklarowana data zwrotu
-            <input type="date" id="edit-declared-return-date" />
-          </label>
-          <label>
-            Faktyczna data zwrotu
-            <input type="date" id="edit-actual-return-date" disabled />
-          </label>
-          <label class="grid-span-2">
-            Uwagi
-            <input type="text" id="edit-contractor-notes" placeholder="Uwagi do dokumentu WZ" />
-          </label>
+      <div class="detail-summary">
+        <div class="detail-chip">
+          <span>Krok 1</span>
+          <strong>Wybierz WZ z listy</strong>
         </div>
-      </form>
-
-      <div class="detail-summary" id="selected-order-summary"></div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Dzial</th>
-              <th>Kategoria</th>
-              <th>Producent</th>
-              <th>Nazwa</th>
-              <th>Kod</th>
-              <th>Na WZ</th>
-              <th>Maks</th>
-              <th>Akcje</th>
-            </tr>
-          </thead>
-          <tbody id="selected-items-body"></tbody>
-        </table>
+        <div class="detail-chip">
+          <span>Krok 2</span>
+          <strong>Edytuj pozycje i dane kontrahenta</strong>
+        </div>
+        <div class="detail-chip">
+          <span>Krok 3</span>
+          <strong>Przyjmij zwrot na osobnej stronie dokumentu</strong>
+        </div>
       </div>
-      <div id="selected-items-empty" class="muted">Brak pozycji w wybranym WZ.</div>
       <div id="order-result" class="csv-result"></div>
-    </section>
-
-    <section class="card add-items-card">
-      <div class="section-header">
-        <div>
-          <h2>Dodaj pozycje do wybranego WZ</h2>
-          <p class="muted">Mozesz dopisac kolejne pozycje, jesli sa dostepne w magazynie.</p>
-        </div>
-      </div>
-      <div class="list-header">
-        <input id="inventory-add-search" type="search" placeholder="Szukaj po nazwie, kodzie, kategorii lub producencie" />
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Dzial</th>
-              <th>Kategoria</th>
-              <th>Producent</th>
-              <th>Nazwa</th>
-              <th>Aktualny stan</th>
-              <th>Dostepne do dodania</th>
-              <th>Kod</th>
-              <th>Akcja</th>
-            </tr>
-          </thead>
-          <tbody id="inventory-add-body"></tbody>
-        </table>
-      </div>
     </section>
   </main>
 
@@ -168,32 +95,7 @@
       <td data-field="daysToReturn"></td>
       <td><span data-field="status"></span></td>
       <td data-field="itemCount"></td>
-    </tr>
-  </template>
-
-  <template id="selected-item-row-template">
-    <tr>
-      <td data-field="department"></td>
-      <td data-field="category"></td>
-      <td data-field="producer"></td>
-      <td data-field="name"></td>
-      <td data-field="deviceCode"></td>
-      <td><input type="number" data-field="quantity" min="1" /></td>
-      <td data-field="maxQuantity"></td>
-      <td><button type="button" class="btn btn-danger" data-action="remove-item">Usun</button></td>
-    </tr>
-  </template>
-
-  <template id="inventory-add-row-template">
-    <tr>
-      <td data-field="department"></td>
-      <td data-field="category"></td>
-      <td data-field="producer"></td>
-      <td data-field="name"></td>
-      <td data-field="currentQuantity"></td>
-      <td data-field="availableToAdd"></td>
-      <td data-field="deviceCode"></td>
-      <td><button type="button" class="btn btn-light" data-action="add-item">Dodaj</button></td>
+      <td><a class="btn btn-light btn-link" data-action="open-order" href="#">Otworz</a></td>
     </tr>
   </template>
 

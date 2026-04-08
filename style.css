@@ -138,12 +138,21 @@ body {
   align-items: start;
 }
 
+.rental-order-layout {
+  max-width: 1400px;
+  align-items: start;
+}
+
 .orders-card {
   grid-row: span 2;
 }
 
 .selected-order-card,
 .add-items-card {
+  min-width: 0;
+}
+
+.orders-help-card {
   min-width: 0;
 }
 
@@ -256,6 +265,10 @@ select:focus {
   background: rgba(30, 41, 59, 0.95);
   color: #e2e8f0;
   margin-right: 6px;
+}
+
+.btn-link {
+  text-decoration: none;
 }
 
 .btn-danger {
@@ -449,6 +462,22 @@ th {
 .status-returned {
   background: rgba(34, 197, 94, 0.18);
   color: #86efac;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: #7dd3fc;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.row-clickable {
+  cursor: pointer;
 }
 
 .row-selected td {

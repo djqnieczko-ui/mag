@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Ustawienia WZ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Ustawienia wybranej listy wynajmu</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab">Zarzadzanie</a>
+        <a href="rental.html" class="nav-tab">Nowe wypozyczenie</a>
+        <a href="rental-manage.html" class="nav-tab nav-tab-active">Listy wynajmu</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    </div>
+  </header>
+
+  <main class="layout rental-order-layout">
+    <section class="card selected-order-card">
+      <div class="section-header">
+        <div>
+          <a href="rental-manage.html" class="back-link">Powrot do listy WZ</a>
+          <h2>Szczegoly wybranego WZ</h2>
+          <p class="muted" id="selected-order-meta">Ladowanie dokumentu...</p>
+        </div>
+        <div class="order-actions">
+          <span id="selected-order-status" class="status-badge status-neutral">Ladowanie</span>
+          <button type="button" class="btn btn-light" id="save-order-changes" disabled>Zapisz zmiany</button>
+          <button type="button" class="btn btn-primary" id="receive-return" disabled>Przyjmij zwrot</button>
+        </div>
+      </div>
+
+      <form id="selected-order-form">
+        <div class="grid">
+          <label>
+            Nazwa kontrahenta
+            <input type="text" id="edit-contractor-name" placeholder="np. Event Pro Sp. z o.o." />
+          </label>
+          <label>
+            Osoba kontaktowa
+            <input type="text" id="edit-contractor-contact" placeholder="np. Jan Kowalski" />
+          </label>
+          <label>
+            Telefon
+            <input type="text" id="edit-contractor-phone" placeholder="np. 600 700 800" />
+          </label>
+          <label>
+            Email
+            <input type="email" id="edit-contractor-email" placeholder="np. biuro@firma.pl" />
+          </label>
+          <label>
+            Deklarowana data zwrotu
+            <input type="date" id="edit-declared-return-date" />
+          </label>
+          <label>
+            Faktyczna data zwrotu
+            <input type="date" id="edit-actual-return-date" disabled />
+          </label>
+          <label class="grid-span-2">
+            Uwagi
+            <input type="text" id="edit-contractor-notes" placeholder="Uwagi do dokumentu WZ" />
+          </label>
+        </div>
+      </form>
+
+      <div class="detail-summary" id="selected-order-summary"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dzial</th>
+              <th>Kategoria</th>
+              <th>Producent</th>
+              <th>Nazwa</th>
+              <th>Kod</th>
+              <th>Na WZ</th>
+              <th>Maks</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="selected-items-body"></tbody>
+        </table>
+      </div>
+      <div id="selected-items-empty" class="muted">Brak pozycji w wybranym WZ.</div>
+      <div id="order-result" class="csv-result"></div>
+    </section>
+
+    <section class="card add-items-card">
+      <div class="section-header">
+        <div>
+          <h2>Dodaj pozycje do wybranego WZ</h2>
+          <p class="muted">Mozesz dopisac kolejne pozycje, jesli sa dostepne w magazynie.</p>
+        </div>
+      </div>
+      <div class="list-header">
+        <input id="inventory-add-search" type="search" placeholder="Szukaj po nazwie, kodzie, kategorii lub producencie" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dzial</th>
+              <th>Kategoria</th>
+              <th>Producent</th>
+              <th>Nazwa</th>
+              <th>Aktualny stan</th>
+              <th>Dostepne do dodania</th>
+              <th>Kod</th>
+              <th>Akcja</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-add-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <template id="selected-item-row-template">
+    <tr>
+      <td data-field="department"></td>
+      <td data-field="category"></td>
+      <td data-field="producer"></td>
+      <td data-field="name"></td>
+      <td data-field="deviceCode"></td>
+      <td><input type="number" data-field="quantity" min="1" /></td>
+      <td data-field="maxQuantity"></td>
+      <td><button type="button" class="btn btn-danger" data-action="remove-item">Usun</button></td>
+    </tr>
+  </template>
+
+  <template id="inventory-add-row-template">
+    <tr>
+      <td data-field="department"></td>
+      <td data-field="category"></td>
+      <td data-field="producer"></td>
+      <td data-field="name"></td>
+      <td data-field="currentQuantity"></td>
+      <td data-field="availableToAdd"></td>
+      <td data-field="deviceCode"></td>
+      <td><button type="button" class="btn btn-light" data-action="add-item">Dodaj</button></td>
+    </tr>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="rental-order.js"></script>
+</body>
+</html>
