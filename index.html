@@ -19,6 +19,19 @@
   </header>
 
   <main class="layout">
+    <section class="card import-card">
+      <h2>Import CSV</h2>
+      <p class="muted">1) Wybierz plik CSV. 2) Przypisz nagłówki CSV do pól magazynu. 3) Zaimportuj pozycje.</p>
+      <div class="import-controls">
+        <input type="file" id="csv-file" accept=".csv,text/csv" />
+        <button type="button" class="btn btn-light" id="prepare-import">Przygotuj mapowanie</button>
+        <button type="button" class="btn btn-primary" id="run-import" disabled>Importuj CSV</button>
+      </div>
+      <div id="csv-meta" class="csv-meta"></div>
+      <div id="csv-mapping" class="csv-mapping"></div>
+      <div id="csv-result" class="csv-result"></div>
+    </section>
+
     <section class="card form-card">
       <h2>Dodaj lub zaktualizuj produkt</h2>
       <form id="item-form">

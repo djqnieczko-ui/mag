@@ -11,6 +11,21 @@ const searchInput = document.getElementById("search");
 const itemsBody = document.getElementById("items-body");
 const rowTemplate = document.getElementById("row-template");
 const statsContainer = document.getElementById("stats");
+const csvFileInput = document.getElementById("csv-file");
+const prepareImportButton = document.getElementById("prepare-import");
+const runImportButton = document.getElementById("run-import");
+const csvMeta = document.getElementById("csv-meta");
+const csvMapping = document.getElementById("csv-mapping");
+const csvResult = document.getElementById("csv-result");
+
+const TARGET_FIELDS = [
+  { key: "department", label: "Dział" },
+  { key: "category", label: "Kategoria" },
+  { key: "name", label: "Nazwa" },
+  { key: "weight", label: "Waga (kg)" },
+  { key: "quantity", label: "Ilość" },
+  { key: "deviceCode", label: "Kod urządzenia" },
+];
 
 const fields = {
   department: document.getElementById("department"),
@@ -23,6 +38,8 @@ const fields = {
 
 let items = loadItems();
 let editingCode = null;
+let importRows = [];
+let importHeaders = [];
 
 function loadItems() {
   try {
@@ -54,6 +71,96 @@ function normalizeText(value) {
   return String(value).trim().toLowerCase();
 }
 
+function normalizeDepartment(value) {
+  const normalized = normalizeText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z]/g, "");
+
+  if (normalized.includes("swiat")) return "Swiatlo";
+  if (normalized.includes("dzwiek") || normalized.includes("dzwiek")) return "Dzwiek";
+  if (normalized.includes("scena")) return "Scena";
+  if (normalized.includes("kraty") || normalized.includes("kraty")) return "Kraty";
+  return value;
+}
+
+function parseNumber(value) {
+  const normalized = String(value).trim().replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function detectDelimiter(headerLine) {
+  const delimiters = [",", ";", "\t"];
+  const scores = delimiters.map((delimiter) => ({
+    delimiter,
+    score: headerLine.split(delimiter).length,
+  }));
+  scores.sort((a, b) => b.score - a.score);
+  return scores[0].score > 1 ? scores[0].delimiter : ",";
+}
+
+function parseCsv(text, delimiter) {
+  const rows = [];
+  let current = "";
+  let row = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      row.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      row.push(current.trim());
+      current = "";
+      if (row.some((cell) => cell !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.length > 0 || row.length > 0) {
+    row.push(current.trim());
+    if (row.some((cell) => cell !== "")) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Nie udało się odczytać pliku CSV."));
+    reader.readAsText(file, "utf-8");
+  });
+}
+
 function upsertItem(newItem) {
   const existingIndex = items.findIndex((item) => item.deviceCode === newItem.deviceCode);
   if (existingIndex >= 0) {
@@ -64,7 +171,10 @@ function upsertItem(newItem) {
 }
 
 function renderCategoryOptions(selectedDepartment, selectedCategory = "") {
-  const categories = DEPARTMENT_CATEGORIES[selectedDepartment] || [];
+  const categories = [...(DEPARTMENT_CATEGORIES[selectedDepartment] || [])];
+  if (selectedCategory && !categories.includes(selectedCategory)) {
+    categories.push(selectedCategory);
+  }
   fields.category.innerHTML = "";
 
   const placeholder = document.createElement("option");
@@ -81,6 +191,88 @@ function renderCategoryOptions(selectedDepartment, selectedCategory = "") {
     }
     fields.category.appendChild(option);
   }
+}
+
+function renderMappingSelectors(headers) {
+  csvMapping.innerHTML = "";
+
+  for (const target of TARGET_FIELDS) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "mapping-field";
+
+    const label = document.createElement("label");
+    label.textContent = target.label;
+    label.setAttribute("for", `map-${target.key}`);
+
+    const select = document.createElement("select");
+    select.id = `map-${target.key}`;
+    select.dataset.targetField = target.key;
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Wybierz nagłówek z CSV";
+    select.appendChild(placeholder);
+
+    for (const header of headers) {
+      const option = document.createElement("option");
+      option.value = header;
+      option.textContent = header;
+      select.appendChild(option);
+    }
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(select);
+    csvMapping.appendChild(wrapper);
+  }
+}
+
+function getMapping() {
+  const mapping = {};
+  for (const target of TARGET_FIELDS) {
+    const select = document.getElementById(`map-${target.key}`);
+    if (!select || !select.value) {
+      throw new Error(`Brak mapowania dla pola: ${target.label}`);
+    }
+    mapping[target.key] = select.value;
+  }
+  return mapping;
+}
+
+function buildItemFromCsv(rowMap, rowNumber) {
+  const department = normalizeDepartment(rowMap.department);
+  const category = String(rowMap.category || "").trim();
+  const name = String(rowMap.name || "").trim();
+  const deviceCode = String(rowMap.deviceCode || "").trim();
+  const weight = parseNumber(rowMap.weight);
+  const quantity = parseNumber(rowMap.quantity);
+
+  if (!DEPARTMENT_CATEGORIES[department]) {
+    throw new Error(`Wiersz ${rowNumber}: niepoprawny dział (${rowMap.department})`);
+  }
+  if (!category) {
+    throw new Error(`Wiersz ${rowNumber}: pusta kategoria`);
+  }
+  if (!name) {
+    throw new Error(`Wiersz ${rowNumber}: pusta nazwa`);
+  }
+  if (!deviceCode) {
+    throw new Error(`Wiersz ${rowNumber}: pusty kod urządzenia`);
+  }
+  if (Number.isNaN(weight) || weight < 0) {
+    throw new Error(`Wiersz ${rowNumber}: niepoprawna waga`);
+  }
+  if (Number.isNaN(quantity) || quantity < 0) {
+    throw new Error(`Wiersz ${rowNumber}: niepoprawna ilość`);
+  }
+
+  return {
+    department,
+    category,
+    name,
+    weight,
+    quantity,
+    deviceCode,
+  };
 }
 
 function resetForm() {
@@ -200,6 +392,79 @@ form.addEventListener("submit", (event) => {
 searchInput.addEventListener("input", renderRows);
 fields.department.addEventListener("change", () => {
   renderCategoryOptions(fields.department.value);
+});
+
+prepareImportButton.addEventListener("click", async () => {
+  const file = csvFileInput.files?.[0];
+  csvResult.textContent = "";
+  csvResult.className = "csv-result";
+
+  if (!file) {
+    csvResult.textContent = "Wybierz plik CSV przed przygotowaniem mapowania.";
+    csvResult.classList.add("error");
+    return;
+  }
+
+  try {
+    const text = await readFileText(file);
+    const firstLine = text.split(/\r?\n/)[0] || "";
+    const delimiter = detectDelimiter(firstLine);
+    const parsedRows = parseCsv(text, delimiter);
+
+    if (parsedRows.length < 2) {
+      throw new Error("CSV musi zawierać nagłówki i co najmniej 1 wiersz danych.");
+    }
+
+    importHeaders = parsedRows[0].map((header) => header.trim());
+    importRows = parsedRows.slice(1);
+
+    renderMappingSelectors(importHeaders);
+    runImportButton.disabled = false;
+    csvMeta.textContent = `Wczytano ${importRows.length} wierszy. Wykryty separator: ${delimiter === "\t" ? "TAB" : delimiter}`;
+  } catch (error) {
+    runImportButton.disabled = true;
+    csvMapping.innerHTML = "";
+    csvMeta.textContent = "";
+    csvResult.textContent = error.message;
+    csvResult.classList.add("error");
+  }
+});
+
+runImportButton.addEventListener("click", () => {
+  csvResult.textContent = "";
+  csvResult.className = "csv-result";
+
+  try {
+    const mapping = getMapping();
+    const imported = [];
+
+    for (let index = 0; index < importRows.length; index += 1) {
+      const row = importRows[index];
+      const rowObject = {};
+      for (let headerIndex = 0; headerIndex < importHeaders.length; headerIndex += 1) {
+        rowObject[importHeaders[headerIndex]] = row[headerIndex] ?? "";
+      }
+
+      const mappedRow = {};
+      for (const target of TARGET_FIELDS) {
+        mappedRow[target.key] = rowObject[mapping[target.key]];
+      }
+
+      imported.push(buildItemFromCsv(mappedRow, index + 2));
+    }
+
+    for (const item of imported) {
+      upsertItem(item);
+    }
+
+    saveItems();
+    renderRows();
+    csvResult.textContent = `Zaimportowano ${imported.length} pozycji.`;
+    csvResult.classList.add("success");
+  } catch (error) {
+    csvResult.textContent = error.message;
+    csvResult.classList.add("error");
+  }
 });
 
 renderCategoryOptions(fields.department.value);

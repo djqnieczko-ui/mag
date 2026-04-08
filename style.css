@@ -91,6 +91,11 @@ h2 {
   font-family: "Space Grotesk", sans-serif;
 }
 
+.muted {
+  color: var(--muted);
+  margin-top: -4px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -168,6 +173,51 @@ select:focus {
   color: var(--danger);
 }
 
+.import-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+#csv-file {
+  max-width: 360px;
+}
+
+.csv-meta,
+.csv-result {
+  margin-top: 12px;
+  font-size: 0.94rem;
+}
+
+.csv-mapping {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.mapping-field {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.mapping-field label {
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.csv-result.success {
+  color: #166534;
+}
+
+.csv-result.error {
+  color: #b91c1c;
+}
+
 .list-header {
   display: flex;
   align-items: center;
@@ -221,24 +271,6 @@ th {
   font-size: 0.88rem;
   color: var(--muted);
   font-weight: 700;
-}
-
-.status-pill {
-  display: inline-block;
-  padding: 4px 9px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.status-ok {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-low {
-  background: #fff7ed;
-  color: var(--accent-2);
 }
 
 @media (max-width: 768px) {
