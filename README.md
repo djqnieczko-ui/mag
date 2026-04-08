@@ -31,8 +31,14 @@ window.APP_CONFIG = {
 1. W Supabase przejdz do `Project Settings > Database` i skopiuj `Connection string` dla roli `postgres`.
 2. W GitHub repo przejdz do `Settings > Secrets and variables > Actions`.
 3. Dodaj sekret `SUPABASE_DB_URL` z wartoscia connection string.
-4. Workflow `Supabase schema migration` uruchomi sie automatycznie po zmianie pliku `supabase.sql` na galezi `main`.
-5. Możesz uruchomic workflow recznie z zakladki `Actions` przez `Run workflow`.
+4. Jesli `SUPABASE_DB_URL` powoduje blad polaczenia (np. haslo ze znakami specjalnymi), uzyj zamiast tego sekretow:
+    - `SUPABASE_DB_HOST`
+    - `SUPABASE_DB_PORT` (opcjonalnie, domyslnie 5432)
+    - `SUPABASE_DB_NAME`
+    - `SUPABASE_DB_USER`
+    - `SUPABASE_DB_PASSWORD`
+5. Workflow `Supabase schema migration` uruchomi sie automatycznie po zmianie pliku `supabase.sql` na galezi `main`.
+6. Możesz uruchomic workflow recznie z zakladki `Actions` przez `Run workflow`.
 
 ## Publikacja online (GitHub Pages)
 1. W repozytorium GitHub przejdz do `Settings > Pages`.
