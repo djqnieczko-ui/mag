@@ -17,6 +17,7 @@
     <h1>Magazyn</h1>
     <p>Prosty panel stanów magazynowych</p>
     <div id="build-version" class="build-version">Wersja: lokalna</div>
+    <div id="data-mode" class="build-version">Dane: localStorage</div>
   </header>
 
   <main class="layout">
@@ -81,7 +82,7 @@
     <section class="card list-card">
       <div class="list-header">
         <h2>Lista pozycji</h2>
-        <input id="search" type="search" placeholder="Szukaj: dział, producent, kategoria, nazwa, kod" />
+        <input id="search" type="search" placeholder="Szukaj: dzial, producent, kategoria, nazwa, kod" />
       </div>
 
       <div class="stats" id="stats"></div>
@@ -122,6 +123,8 @@
     </tr>
   </template>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

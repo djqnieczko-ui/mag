@@ -1,30 +1,40 @@
-# Magazyn - prosta aplikacja WWW
+# Magazyn - aplikacja WWW
 
-To jest lekka aplikacja do zarządzania stanami magazynowymi (HTML/CSS/JS), gotowa do publikacji na GitHub Pages.
+Lekka aplikacja do zarządzania stanami magazynowymi (HTML/CSS/JS), gotowa do publikacji na GitHub Pages.
 
 ## Funkcje
-- Dodawanie, edycja i usuwanie produktów
-- Wyszukiwanie po nazwie, SKU i lokalizacji
-- Podgląd niskiego stanu magazynowego
-- Zapis danych w `localStorage` przeglądarki
+- Dzial, producent, kategoria, nazwa, waga, ilosc, kod urzadzenia
+- Dodawanie, edycja i usuwanie pozycji
+- Import CSV z mapowaniem naglowkow
+- Wyszukiwanie po wielu polach
+- Tryb danych:
+   - `localStorage` (domyslny)
+   - Supabase (darmowa chmura)
 
-## Uruchomienie lokalne
-1. Otwórz plik `index.html` w przeglądarce.
+## Konfiguracja Supabase (Free)
+1. Zaloz projekt w Supabase.
+2. Otworz SQL Editor i uruchom skrypt z pliku `supabase.sql`.
+3. Otworz `Project Settings > API` i skopiuj:
+    - `Project URL`
+    - `anon public key`
+4. W pliku `config.js` uzupelnij:
+
+```javascript
+window.APP_CONFIG = {
+   supabaseUrl: "https://twoj-projekt.supabase.co",
+   supabaseAnonKey: "twoj-anon-key",
+};
+```
+
+5. Wypchnij zmiany na GitHub.
+6. Po wdrozeniu strona pokaze w naglowku tryb: `Dane: Supabase (cloud)`.
+
+## Migracja danych
+- Przy pierwszym uruchomieniu w trybie chmurowym aplikacja automatycznie przenosi dane z `localStorage` do Supabase (jesli tabela w chmurze jest pusta).
 
 ## Publikacja online (GitHub Pages)
-1. W repozytorium na GitHub wejdź w `Settings > Pages`.
+1. W repozytorium GitHub przejdz do `Settings > Pages`.
 2. W `Build and deployment` ustaw `Source: GitHub Actions`.
-3. Wypchnij kod na gałąź `main`.
-4. Wejdź w zakładkę `Actions` i poczekaj na workflow `Deploy static site to GitHub Pages`.
-5. Po wdrożeniu strona będzie pod adresem:
-   `https://<twoj-login>.github.io/<nazwa-repo>/`
-
-## Szybkie komendy git
-```powershell
-git init
-git add .
-git commit -m "Start aplikacji magazynowej"
-git branch -M main
-git remote add origin https://github.com/<twoj-login>/<nazwa-repo>.git
-git push -u origin main
-```
+3. Wypchnij kod na galez `main`.
+4. Sprawdz workflow `Deploy static site to GitHub Pages` w zakladce `Actions`.
+5. Adres strony: `https://<twoj-login>.github.io/<nazwa-repo>/`
