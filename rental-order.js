@@ -8,6 +8,7 @@ const selectedOrderMeta = document.getElementById("selected-order-meta");
 const selectedOrderStatus = document.getElementById("selected-order-status");
 const selectedOrderSummary = document.getElementById("selected-order-summary");
 const orderResult = document.getElementById("order-result");
+const deleteOrderButton = document.getElementById("delete-order");
 const saveOrderChangesButton = document.getElementById("save-order-changes");
 const receiveReturnButton = document.getElementById("receive-return");
 const selectedItemsBody = document.getElementById("selected-items-body");
@@ -274,6 +275,7 @@ function renderSelectedOrderHeader(order) {
 function toggleOrderActions(order) {
   const isSelected = Boolean(order);
   const isReturned = Boolean(order?.actualReturnDate);
+  deleteOrderButton.disabled = !isSelected;
   saveOrderChangesButton.disabled = !isSelected || isReturned;
   receiveReturnButton.disabled = !isSelected || isReturned;
 
@@ -667,6 +669,82 @@ async function receiveReturn() {
   }
 }
 
+function getDeleteRestoreAdjustments(order) {
+  if (!order || order.actualReturnDate) {
+    return [];
+  }
+
+  return order.items.map((item) => {
+    const inventoryItem = getInventoryItem(item.deviceCode);
+    if (!inventoryItem) {
+      throw new Error(`Brak pozycji magazynowej dla ${item.deviceCode}.`);
+    }
+
+    return {
+      deviceCode: item.deviceCode,
+      previousCurrentQuantity: inventoryItem.currentQuantity,
+      nextCurrentQuantity: Math.min(
+        inventoryItem.totalQuantity,
+        inventoryItem.currentQuantity + item.quantity
+      ),
+    };
+  });
+}
+
+async function deleteSelectedOrder() {
+  const order = getSelectedOrder();
+  if (!order) {
+    throw new Error("Wybierz listę wynajmu.");
+  }
+
+  const hasUnsavedChanges =
+    selectedDraftItems.length !== order.items.length ||
+    selectedDraftItems.some(
+      (item) => (getOriginalQuantityMap(order).get(item.deviceCode) || 0) !== item.quantity
+    ) ||
+    orderFields.contractorName.value.trim() !== order.contractorName ||
+    orderFields.contractorContact.value.trim() !== order.contractorContact ||
+    orderFields.contractorPhone.value.trim() !== order.contractorPhone ||
+    orderFields.contractorEmail.value.trim() !== order.contractorEmail ||
+    (orderFields.declaredReturnDate.value || "") !== (order.declaredReturnDate || "") ||
+    orderFields.notes.value.trim() !== order.notes;
+
+  const confirmationMessage = hasUnsavedChanges
+    ? "Masz niezapisane zmiany. Czy na pewno usunac WZ? Zostanie usunieta zapisana wersja dokumentu."
+    : "Czy na pewno usunac WZ?";
+
+  if (!confirm(confirmationMessage)) {
+    return false;
+  }
+
+  await fetchInventory();
+  const restoreAdjustments = getDeleteRestoreAdjustments(order);
+  const appliedAdjustments = [];
+
+  try {
+    for (const adjustment of restoreAdjustments) {
+      await applyInventoryAdjustment(adjustment);
+      appliedAdjustments.push(adjustment);
+    }
+
+    const { error } = await supabaseClient
+      .from(RENTAL_ORDERS_TABLE)
+      .delete()
+      .eq("id", order.id);
+
+    if (error) {
+      throw new Error(`Blad usuwania WZ: ${error.message}`);
+    }
+  } catch (error) {
+    if (appliedAdjustments.length) {
+      await rollbackInventoryAdjustments(appliedAdjustments);
+    }
+    throw error;
+  }
+
+  return true;
+}
+
 async function refreshData() {
   await fetchInventory();
   await fetchRentalOrders();
@@ -690,6 +768,19 @@ saveOrderChangesButton.addEventListener("click", async () => {
     await saveSelectedOrderChanges();
     await refreshData();
     setOrderResult("Zapisano zmiany w wybranym WZ.", "success");
+  } catch (error) {
+    setOrderResult(error.message, "error");
+  }
+});
+
+deleteOrderButton.addEventListener("click", async () => {
+  setOrderResult();
+  try {
+    const deleted = await deleteSelectedOrder();
+    if (!deleted) {
+      return;
+    }
+    window.location.href = "rental-manage.html";
   } catch (error) {
     setOrderResult(error.message, "error");
   }
