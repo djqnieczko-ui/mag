@@ -73,23 +73,51 @@ function parseContractorContact(value) {
   let postalCode = "";
   let city = "";
 
-  const normalizedAddress = String(addressPart || "").replace(/\s+/g, " ").trim();
-  if (normalizedAddress) {
-    const addressMatch = normalizedAddress.match(/^(.*?),\s*([0-9]{2}-[0-9]{3})\s+(.+)$/);
-    if (addressMatch) {
-      street = addressMatch[1].trim();
-      postalCode = addressMatch[2].trim();
-      city = addressMatch[3].trim();
+  if (addressPart) {
+    const normalizedAddress = addressPart.replace(/\s+/g, " ").trim();
+    const postalAtEnd = normalizedAddress.match(/([0-9]{2}-[0-9]{3})\s+(.+)$/);
+
+    if (postalAtEnd) {
+      postalCode = postalAtEnd[1].trim();
+      city = postalAtEnd[2].trim();
+      street = normalizedAddress
+        .slice(0, postalAtEnd.index)
+        .replace(/,\s*$/, "")
+        .trim();
     } else {
-      street = normalizedAddress;
-      const cityPostalMatch = normalizedAddress.match(/([0-9]{2}-[0-9]{3})\s+(.+)$/);
-      if (cityPostalMatch) {
-        postalCode = cityPostalMatch[1].trim();
-        city = cityPostalMatch[2].trim();
-        street = normalizedAddress.slice(0, cityPostalMatch.index).replace(/,\s*$/, "").trim();
+      const commaParts = normalizedAddress.split(",").map((part) => part.trim()).filter(Boolean);
+      if (commaParts.length > 1) {
+        street = commaParts[0];
+        const tail = commaParts.slice(1).join(" ");
+        const postalInTail = tail.match(/^([0-9]{2}-[0-9]{3})\s+(.+)$/);
+        if (postalInTail) {
+          postalCode = postalInTail[1].trim();
+          city = postalInTail[2].trim();
+        } else {
+          city = tail;
+        }
+      } else {
+        street = normalizedAddress;
       }
     }
   }
+
+  const streetPostalMatch = street.match(/^(.*?)[,\s]+([0-9]{2}-[0-9]{3})\s+(.+)$/);
+  if (streetPostalMatch && !postalCode) {
+    street = streetPostalMatch[1].trim();
+    postalCode = streetPostalMatch[2].trim();
+    city = streetPostalMatch[3].trim();
+  }
+
+  const cityPostalMatch = city.match(/^([0-9]{2}-[0-9]{3})\s*(.*)$/);
+  if (cityPostalMatch) {
+    if (!postalCode) {
+      postalCode = cityPostalMatch[1].trim();
+    }
+    city = cityPostalMatch[2].trim();
+  }
+
+  city = city.replace(/^[,\s-]+/, "").trim();
 
   return { nip, street, postalCode, city };
 }
