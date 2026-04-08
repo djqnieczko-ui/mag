@@ -16,6 +16,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 
 let rentalOrders = [];
 let hasRentalMetricsColumns = true;
+let hasSettlementColumn = true;
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
@@ -85,6 +86,7 @@ function fromOrderRow(row) {
     contractorEmail: row.contractor_email || "",
     declaredReturnDate: row.declared_return_date || "",
     actualReturnDate: row.actual_return_date || "",
+    settledAt: row.settled_at || "",
     borrowedTotalQuantity,
     returnedQuantity,
     outstandingQuantity,
@@ -105,8 +107,8 @@ function fromOrderRow(row) {
 
 async function fetchRentalOrders() {
   const selectFields = hasRentalMetricsColumns
-    ? "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)"
-    : "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)";
+    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)`
+    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)`;
 
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -136,6 +138,25 @@ async function detectRentalMetricsColumns() {
   throw new Error(`Błąd sprawdzania kolumn list wynajmu: ${error.message}`);
 }
 
+async function detectSettlementColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, settled_at")
+    .limit(1);
+
+  if (!error) {
+    hasSettlementColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /settled_at/i.test(error.message)) {
+    hasSettlementColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumny rozliczenia: ${error.message}`);
+}
+
 function startOfToday() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -151,6 +172,14 @@ function getDaysToReturn(dateValue) {
 }
 
 function getOrderStatus(order) {
+  if (order.settledAt) {
+    return {
+      label: "Rozliczono",
+      tone: "settled",
+      days: null,
+    };
+  }
+
   if (order.actualReturnDate) {
     return {
       label: `Zwrocono ${formatDate(order.actualReturnDate)}`,
@@ -192,14 +221,16 @@ function renderOrdersStats(filteredOrders) {
   const openOrders = filteredOrders.filter((order) => !order.actualReturnDate);
   const overdue = openOrders.filter((order) => getOrderStatus(order).tone === "overdue").length;
   const dueToday = openOrders.filter((order) => getOrderStatus(order).tone === "today").length;
-  const returned = filteredOrders.filter((order) => Boolean(order.actualReturnDate)).length;
+  const settled = filteredOrders.filter((order) => Boolean(order.settledAt)).length;
+  const returned = filteredOrders.filter((order) => Boolean(order.actualReturnDate) && !order.settledAt).length;
 
   ordersStats.innerHTML = [
     ["Wszystkie WZ", filteredOrders.length],
     ["Otwarte", openOrders.length],
     ["Po terminie", overdue],
     ["Zwrot dzisiaj", dueToday],
-    ["Zamkniete", returned],
+    ["Zwrocone", returned],
+    ["Rozliczone", settled],
   ]
     .map(([label, value]) => `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`)
     .join("");
@@ -265,6 +296,7 @@ async function init() {
   loadBuildVersion();
   try {
     ensureSupabaseConfigured();
+    await detectSettlementColumn();
     await detectRentalMetricsColumns();
     renderDataMode();
     await refreshData();

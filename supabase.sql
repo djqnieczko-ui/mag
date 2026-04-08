@@ -55,6 +55,7 @@ create table if not exists public.rental_orders (
   contractor_email text,
   declared_return_date date,
   actual_return_date date,
+  settled_at timestamptz,
   borrowed_total_quantity integer not null default 0,
   returned_quantity integer not null default 0,
   notes text,
@@ -63,6 +64,7 @@ create table if not exists public.rental_orders (
 
 alter table public.rental_orders add column if not exists declared_return_date date;
 alter table public.rental_orders add column if not exists actual_return_date date;
+alter table public.rental_orders add column if not exists settled_at timestamptz;
 alter table public.rental_orders add column if not exists borrowed_total_quantity integer;
 alter table public.rental_orders add column if not exists returned_quantity integer;
 

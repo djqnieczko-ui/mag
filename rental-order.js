@@ -37,6 +37,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 let hasSplitStockColumns = true;
 let hasRentalMetricsColumns = true;
 let hasRentalItemReturnColumns = true;
+let hasSettlementColumn = true;
 let inventoryItems = [];
 let rentalOrders = [];
 let selectedOrderId = null;
@@ -142,6 +143,7 @@ function fromOrderRow(row) {
     contractorEmail: row.contractor_email || "",
     declaredReturnDate: row.declared_return_date || "",
     actualReturnDate: row.actual_return_date || "",
+    settledAt: row.settled_at || "",
     borrowedTotalQuantity,
     returnedQuantity,
     outstandingQuantity,
@@ -182,8 +184,8 @@ async function fetchRentalOrders() {
     : "id, device_code, department, category, producer, name, quantity";
 
   const selectFields = hasRentalMetricsColumns
-    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})`
-    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(${itemSelectFields})`;
+    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})`
+    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(${itemSelectFields})`;
 
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -232,6 +234,25 @@ async function detectRentalMetricsColumns() {
   throw new Error(`Błąd sprawdzania kolumn list wynajmu: ${error.message}`);
 }
 
+async function detectSettlementColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, settled_at")
+    .limit(1);
+
+  if (!error) {
+    hasSettlementColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /settled_at/i.test(error.message)) {
+    hasSettlementColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumny rozliczenia: ${error.message}`);
+}
+
 function startOfToday() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -247,6 +268,14 @@ function getDaysToReturn(dateValue) {
 }
 
 function getOrderStatus(order) {
+  if (order.settledAt) {
+    return {
+      label: "Rozliczono",
+      tone: "settled",
+      days: null,
+    };
+  }
+
   if (order.actualReturnDate) {
     return {
       label: `Zwrocono ${formatDate(order.actualReturnDate)}`,
@@ -361,16 +390,18 @@ function renderSelectedOrderHeader(order) {
 function toggleOrderActions(order) {
   const isSelected = Boolean(order);
   const isReturned = Boolean(order?.actualReturnDate);
+  const isSettled = Boolean(order?.settledAt);
   deleteOrderButton.disabled = !isSelected;
-  saveOrderChangesButton.disabled = !isSelected || isReturned;
-  receiveReturnButton.disabled = !isSelected || isReturned;
-  inventoryAddSearch.disabled = !isSelected || isReturned;
+  saveOrderChangesButton.disabled = !isSelected || isReturned || isSettled;
+  receiveReturnButton.disabled = !isSelected || isSettled;
+  receiveReturnButton.textContent = isReturned ? "Rozliczono" : "Przyjmij zwrot";
+  inventoryAddSearch.disabled = !isSelected || isReturned || isSettled;
 
   if (selectedItemsActionsHeader) {
-    selectedItemsActionsHeader.style.display = isReturned ? "none" : "";
+    selectedItemsActionsHeader.style.display = isReturned || isSettled ? "none" : "";
   }
   if (addItemsCard) {
-    addItemsCard.style.display = isSelected && isReturned ? "none" : "";
+    addItemsCard.style.display = isSelected && (isReturned || isSettled) ? "none" : "";
   }
 
   for (const field of Object.values(orderFields)) {
@@ -442,7 +473,7 @@ function renderSelectedItems() {
     const removeButton = row.querySelector('[data-action="remove-item"]');
     const actionsCell = row.querySelector('[data-field="actionsCell"]');
     if (actionsCell) {
-      actionsCell.style.display = isReturned ? "none" : "";
+      actionsCell.style.display = isReturned || Boolean(order?.settledAt) ? "none" : "";
     }
     removeButton.disabled = isReturned;
     removeButton.addEventListener("click", () => {
@@ -773,6 +804,9 @@ async function receiveReturn() {
   if (!order) {
     throw new Error("Wybierz listę wynajmu.");
   }
+  if (order.settledAt) {
+    throw new Error("Ten dokument jest juz rozliczony.");
+  }
   if (order.actualReturnDate) {
     throw new Error("Ten dokument ma juz przyjety zwrot.");
   }
@@ -897,6 +931,9 @@ async function receiveReturn() {
     if (hasRentalMetricsColumns) {
       orderPayload.returned_quantity = nextReturnedQuantity;
     }
+    if (hasSettlementColumn) {
+      orderPayload.settled_at = null;
+    }
     orderPayload.actual_return_date = remainingAfter === 0
       ? new Date().toISOString().slice(0, 10)
       : null;
@@ -934,6 +971,31 @@ async function receiveReturn() {
       await rollbackInventoryAdjustments(appliedAdjustments);
     }
     throw error;
+  }
+}
+
+async function settleReturnedOrder() {
+  const order = getSelectedOrder();
+  if (!order) {
+    throw new Error("Wybierz listę wynajmu.");
+  }
+  if (!order.actualReturnDate) {
+    throw new Error("Najpierw przyjmij zwrot, potem rozlicz dokument.");
+  }
+  if (order.settledAt) {
+    throw new Error("Ten dokument jest juz rozliczony.");
+  }
+  if (!hasSettlementColumn) {
+    throw new Error("Brak kolumny settled_at w bazie. Poczekaj na migracje Supabase.");
+  }
+
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .update({ settled_at: new Date().toISOString() })
+    .eq("id", order.id);
+
+  if (error) {
+    throw new Error(`Blad rozliczania dokumentu: ${error.message}`);
   }
 }
 
@@ -1057,6 +1119,18 @@ deleteOrderButton.addEventListener("click", async () => {
 receiveReturnButton.addEventListener("click", async () => {
   setOrderResult();
   try {
+    const order = getSelectedOrder();
+    if (!order) {
+      throw new Error("Wybierz listę wynajmu.");
+    }
+
+    if (order.actualReturnDate) {
+      await settleReturnedOrder();
+      await refreshData();
+      setOrderResult("Dokument zostal rozliczony.", "success");
+      return;
+    }
+
     const returnType = await receiveReturn();
     await refreshData();
     setOrderResult(
@@ -1077,6 +1151,7 @@ async function init() {
     selectedOrderId = params.get("id");
 
     ensureSupabaseConfigured();
+    await detectSettlementColumn();
     await detectRentalMetricsColumns();
     await detectRentalItemReturnColumns();
     await detectWarehouseStockColumns();

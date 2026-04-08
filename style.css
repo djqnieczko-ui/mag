@@ -469,6 +469,11 @@ th {
   color: #f5a8ff;
 }
 
+.status-settled {
+  background: rgba(107, 114, 128, 0.28);
+  color: #e5e7eb;
+}
+
 .back-link {
   display: inline-block;
   margin-bottom: 8px;
@@ -503,6 +508,10 @@ th {
 
 .row-partial td {
   background: rgba(217, 70, 239, 0.12);
+}
+
+.row-settled td {
+  background: rgba(107, 114, 128, 0.12);
 }
 
 @media (max-width: 768px) {
