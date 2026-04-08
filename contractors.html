@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Kontrahenci</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Baza kontrahentow i podsumowanie dokumentow WZ</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab">Zarzadzanie</a>
+        <a href="rental.html" class="nav-tab">Nowe wypozyczenie</a>
+        <a href="rental-manage.html" class="nav-tab">Listy wynajmu</a>
+        <a href="contractors.html" class="nav-tab nav-tab-active">Kontrahenci</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    </div>
+  </header>
+
+  <main class="layout contractors-layout">
+    <section class="card contractors-card">
+      <div class="section-header">
+        <div>
+          <h2>Lista kontrahentow</h2>
+          <p class="muted">Podglad liczby dokumentow WZ: wszystkie, zwrocone, w trakcie i po terminie.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="open-contractor-modal">Dodaj kontrahenta</button>
+      </div>
+
+      <div class="list-header">
+        <input id="contractors-search" type="search" placeholder="Szukaj: nazwa, kontakt, email, telefon" />
+      </div>
+
+      <div class="stats" id="contractors-stats"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kontrahent</th>
+              <th>Kontakt</th>
+              <th>Telefon</th>
+              <th>Email</th>
+              <th>WZ wszystkie</th>
+              <th>Zwrocone</th>
+              <th>W trakcie</th>
+              <th>Po terminie</th>
+            </tr>
+          </thead>
+          <tbody id="contractors-body"></tbody>
+        </table>
+      </div>
+
+      <div id="contractors-result" class="csv-result"></div>
+    </section>
+  </main>
+
+  <div id="contractor-modal" class="modal-shell hidden" role="dialog" aria-modal="true" aria-labelledby="contractor-modal-title">
+    <div class="modal-backdrop" data-action="close-modal"></div>
+    <div class="modal-card">
+      <div class="section-header modal-header">
+        <h3 id="contractor-modal-title">Dodaj kontrahenta</h3>
+        <button type="button" class="btn btn-light" data-action="close-modal">Zamknij</button>
+      </div>
+
+      <form id="contractor-create-form" class="modal-form">
+        <div class="grid">
+          <label>
+            Nazwa kontrahenta
+            <input type="text" id="new-contractor-name" required placeholder="np. Event Pro Sp. z o.o." />
+          </label>
+          <label>
+            Osoba kontaktowa
+            <input type="text" id="new-contractor-contact" placeholder="np. Jan Kowalski" />
+          </label>
+          <label>
+            Telefon
+            <input type="text" id="new-contractor-phone" placeholder="np. 600 700 800" />
+          </label>
+          <label>
+            Email
+            <input type="email" id="new-contractor-email" placeholder="np. biuro@firma.pl" />
+          </label>
+          <label class="grid-span-2">
+            Uwagi
+            <input type="text" id="new-contractor-notes" placeholder="Dodatkowe informacje o kontrahencie" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-light" data-action="close-modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Dodaj</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <template id="contractor-row-template">
+    <tr>
+      <td data-field="name"></td>
+      <td data-field="contact"></td>
+      <td data-field="phone"></td>
+      <td data-field="email"></td>
+      <td data-field="allCount"></td>
+      <td data-field="returnedCount"></td>
+      <td data-field="inProgressCount"></td>
+      <td data-field="overdueCount"></td>
+    </tr>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="contractors.js"></script>
+</body>
+</html>

@@ -129,8 +129,37 @@ alter table public.rental_orders alter column returned_quantity set default 0;
 alter table public.rental_orders alter column borrowed_total_quantity set not null;
 alter table public.rental_orders alter column returned_quantity set not null;
 
+create table if not exists public.contractors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  contact text,
+  phone text,
+  email text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.contractors add column if not exists name text;
+alter table public.contractors add column if not exists contact text;
+alter table public.contractors add column if not exists phone text;
+alter table public.contractors add column if not exists email text;
+alter table public.contractors add column if not exists notes text;
+alter table public.contractors add column if not exists created_at timestamptz;
+
+update public.contractors
+set name = coalesce(name, 'Nieznany kontrahent'),
+    created_at = coalesce(created_at, now());
+
+alter table public.contractors alter column name set not null;
+alter table public.contractors alter column created_at set not null;
+alter table public.contractors alter column created_at set default now();
+
+create unique index if not exists contractors_name_unique_idx
+  on public.contractors (lower(name));
+
 alter table public.rental_orders enable row level security;
 alter table public.rental_order_items enable row level security;
+alter table public.contractors enable row level security;
 
 drop policy if exists "anon_read_rental_orders" on public.rental_orders;
 create policy "anon_read_rental_orders"
@@ -157,6 +186,21 @@ create policy "anon_read_rental_items"
 drop policy if exists "anon_write_rental_items" on public.rental_order_items;
 create policy "anon_write_rental_items"
   on public.rental_order_items
+  for all
+  to anon
+  using (true)
+  with check (true);
+
+drop policy if exists "anon_read_contractors" on public.contractors;
+create policy "anon_read_contractors"
+  on public.contractors
+  for select
+  to anon
+  using (true);
+
+drop policy if exists "anon_write_contractors" on public.contractors;
+create policy "anon_write_contractors"
+  on public.contractors
   for all
   to anon
   using (true)

@@ -514,6 +514,60 @@ th {
   background: rgba(107, 114, 128, 0.12);
 }
 
+.contractors-layout {
+  grid-template-columns: 1fr;
+}
+
+.contractors-card {
+  grid-column: 1 / -1;
+}
+
+.modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.modal-shell.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 14, 27, 0.72);
+}
+
+.modal-card {
+  position: relative;
+  width: min(780px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 30px 80px rgba(8, 14, 27, 0.45);
+}
+
+.modal-header {
+  margin-bottom: 12px;
+}
+
+.modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 @media (max-width: 768px) {
   body {
     padding: 12px;
@@ -537,5 +591,18 @@ th {
 
   table {
     min-width: 760px;
+  }
+
+  .modal-card {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .modal-actions {
+    justify-content: stretch;
+  }
+
+  .modal-actions .btn {
+    flex: 1;
   }
 }
