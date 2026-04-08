@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Wypozyczenia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Wypozyczanie sprzetu i dokumenty WZ</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab">Zarzadzanie</a>
+        <a href="rental.html" class="nav-tab nav-tab-active">Wypozyczenia</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    </div>
+  </header>
+
+  <main class="layout rental-layout">
+    <section class="card contractor-card">
+      <h2>Dane kontrahenta</h2>
+      <form id="contractor-form">
+        <div class="grid">
+          <label>
+            Nazwa kontrahenta
+            <input type="text" id="contractor-name" required placeholder="np. Event Pro Sp. z o.o." />
+          </label>
+          <label>
+            Osoba kontaktowa
+            <input type="text" id="contractor-contact" placeholder="np. Jan Kowalski" />
+          </label>
+          <label>
+            Telefon
+            <input type="text" id="contractor-phone" placeholder="np. 600 700 800" />
+          </label>
+          <label>
+            Email
+            <input type="email" id="contractor-email" placeholder="np. biuro@firma.pl" />
+          </label>
+          <label class="grid-span-2">
+            Uwagi do WZ
+            <input type="text" id="contractor-notes" placeholder="np. Odbior 10.04, zwrot 12.04" />
+          </label>
+        </div>
+      </form>
+    </section>
+
+    <section class="card wz-card">
+      <div class="section-header">
+        <div>
+          <h2>Lista wynajmu / WZ</h2>
+          <p class="muted">Dodawaj pozycje z magazynu, ustaw ilosc i zapisz wypozyczenie.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="save-rental">Zapisz WZ</button>
+      </div>
+      <div id="wz-empty" class="muted">Brak pozycji w dokumencie WZ.</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dzial</th>
+              <th>Kategoria</th>
+              <th>Producent</th>
+              <th>Nazwa</th>
+              <th>Dostepne</th>
+              <th>Do WZ</th>
+              <th>Kod urzadzenia</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="wz-items-body"></tbody>
+        </table>
+      </div>
+      <div id="rental-result" class="csv-result"></div>
+    </section>
+
+    <section class="card history-card">
+      <h2>Zapisane wypozyczenia</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Kontrahent</th>
+              <th>Kontakt</th>
+              <th>Pozycji</th>
+              <th>Uwagi</th>
+            </tr>
+          </thead>
+          <tbody id="rentals-history-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card inventory-pick-card">
+      <div class="list-header">
+        <h2>Lista magazynu</h2>
+        <input id="inventory-search" type="search" placeholder="Szukaj w magazynie: dzial, kategoria, producent, nazwa, kod" />
+      </div>
+      <div class="filter-bar">
+        <label>
+          Filtr dzial
+          <select id="filter-department">
+            <option value="">Wszystkie dzialy</option>
+          </select>
+        </label>
+        <label>
+          Filtr kategoria
+          <select id="filter-category">
+            <option value="">Wszystkie kategorie</option>
+          </select>
+        </label>
+        <label>
+          Filtr producent
+          <select id="filter-producer">
+            <option value="">Wszyscy producenci</option>
+          </select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dzial</th>
+              <th>Kategoria</th>
+              <th>Producent</th>
+              <th>Nazwa</th>
+              <th>Dostepna ilosc</th>
+              <th>Kod urzadzenia</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-items-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <template id="inventory-row-template">
+    <tr>
+      <td data-field="department"></td>
+      <td data-field="category"></td>
+      <td data-field="producer"></td>
+      <td data-field="name"></td>
+      <td data-field="quantity"></td>
+      <td data-field="deviceCode"></td>
+      <td><button type="button" class="btn btn-light" data-action="add-to-wz">Dodaj do WZ</button></td>
+    </tr>
+  </template>
+
+  <template id="wz-row-template">
+    <tr>
+      <td data-field="department"></td>
+      <td data-field="category"></td>
+      <td data-field="producer"></td>
+      <td data-field="name"></td>
+      <td data-field="available"></td>
+      <td><input type="number" data-field="rentQuantity" min="1" /></td>
+      <td data-field="deviceCode"></td>
+      <td><button type="button" class="btn btn-danger" data-action="remove-from-wz">Usun</button></td>
+    </tr>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="rental.js"></script>
+</body>
+</html>
