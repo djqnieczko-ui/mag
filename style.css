@@ -209,6 +209,22 @@ label {
   color: var(--muted);
 }
 
+.field-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.field-with-action input {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-action-btn {
+  margin-right: 0;
+  white-space: nowrap;
+}
+
 input {
   border: 1px solid var(--border);
   border-radius: 10px;

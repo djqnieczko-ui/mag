@@ -58,6 +58,24 @@ function ensureSupabaseConfigured() {
   }
 }
 
+async function copyToClipboard(value) {
+  const text = String(value ?? "");
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const temp = document.createElement("textarea");
+  temp.value = text;
+  temp.setAttribute("readonly", "");
+  temp.style.position = "absolute";
+  temp.style.left = "-9999px";
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand("copy");
+  document.body.removeChild(temp);
+}
+
 function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "nieznana data";
@@ -1285,6 +1303,22 @@ receiveReturnButton.addEventListener("click", async () => {
     );
   } catch (error) {
     setOrderResult(error.message, "error");
+  }
+});
+
+document.getElementById("selected-order-form")?.addEventListener("click", async (event) => {
+  const button = event.target.closest('[data-action="copy-contractor-field"]');
+  if (!button) return;
+
+  const targetId = button.getAttribute("data-copy-target");
+  const field = targetId ? document.getElementById(targetId) : null;
+  if (!field) return;
+
+  try {
+    await copyToClipboard(field.value || "");
+    setOrderResult("Skopiowano dane kontrahenta do schowka.", "success");
+  } catch {
+    setOrderResult("Nie udalo sie skopiowac danych kontrahenta.", "error");
   }
 });
 
