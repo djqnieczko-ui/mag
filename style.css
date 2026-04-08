@@ -226,10 +226,9 @@ label {
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
+  display: none;
   margin-right: 0;
   white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
   padding: 2px 8px;
   min-height: 24px;
   font-size: 0.72rem;
@@ -237,7 +236,7 @@ label {
 
 .field-with-action:hover .field-action-btn,
 .field-with-action:focus-within .field-action-btn {
-  opacity: 1;
+  display: inline-flex;
   pointer-events: auto;
 }
 
