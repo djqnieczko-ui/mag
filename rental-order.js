@@ -132,6 +132,23 @@ function parseContractorContact(value) {
     }
   }
 
+  const streetPostalMatch = street.match(/^(.*?)[,\s]+([0-9]{2}-[0-9]{3})\s+(.+)$/);
+  if (streetPostalMatch && !postalCode) {
+    street = streetPostalMatch[1].trim();
+    postalCode = streetPostalMatch[2].trim();
+    city = streetPostalMatch[3].trim();
+  }
+
+  const cityPostalMatch = city.match(/^([0-9]{2}-[0-9]{3})\s*(.*)$/);
+  if (cityPostalMatch) {
+    if (!postalCode) {
+      postalCode = cityPostalMatch[1].trim();
+    }
+    city = cityPostalMatch[2].trim();
+  }
+
+  city = city.replace(/^[,\s-]+/, "").trim();
+
   return { nip, street, postalCode, city };
 }
 
