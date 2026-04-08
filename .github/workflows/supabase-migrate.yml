@@ -33,19 +33,50 @@ jobs:
         run: |
           set -euo pipefail
 
-          DB_CONN=""
+          DB_MODE=""
           if [ -n "${SUPABASE_DB_URL:-}" ]; then
-            DB_CONN="$SUPABASE_DB_URL"
+            case "$SUPABASE_DB_URL" in
+              postgres://*|postgresql://*)
+                DB_MODE="url"
+                ;;
+              *)
+                echo "SUPABASE_DB_URL must start with postgres:// or postgresql://"
+                exit 1
+                ;;
+            esac
           elif [ -n "${SUPABASE_DB_HOST:-}" ] && [ -n "${SUPABASE_DB_NAME:-}" ] && [ -n "${SUPABASE_DB_USER:-}" ] && [ -n "${SUPABASE_DB_PASSWORD:-}" ]; then
+            DB_MODE="fields"
             DB_PORT_VALUE="${SUPABASE_DB_PORT:-5432}"
             export PGPASSWORD="$SUPABASE_DB_PASSWORD"
-            DB_CONN="host=$SUPABASE_DB_HOST port=$DB_PORT_VALUE dbname=$SUPABASE_DB_NAME user=$SUPABASE_DB_USER sslmode=require"
           else
             echo "Missing DB secrets. Set SUPABASE_DB_URL or all of: SUPABASE_DB_HOST, SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD (optional SUPABASE_DB_PORT)."
             exit 1
           fi
 
           echo "Testing database connection..."
-          psql "$DB_CONN" -v ON_ERROR_STOP=1 -c "select 1;" >/dev/null
+
+          if [ "$DB_MODE" = "url" ]; then
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "select 1;" >/dev/null
+          else
+            psql \
+              -h "$SUPABASE_DB_HOST" \
+              -p "$DB_PORT_VALUE" \
+              -U "$SUPABASE_DB_USER" \
+              -d "$SUPABASE_DB_NAME" \
+              -v ON_ERROR_STOP=1 \
+              -c "select 1;" >/dev/null
+          fi
+
           echo "Connection OK. Running migration..."
-          psql "$DB_CONN" -v ON_ERROR_STOP=1 -f supabase.sql
+
+          if [ "$DB_MODE" = "url" ]; then
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase.sql
+          else
+            psql \
+              -h "$SUPABASE_DB_HOST" \
+              -p "$DB_PORT_VALUE" \
+              -U "$SUPABASE_DB_USER" \
+              -d "$SUPABASE_DB_NAME" \
+              -v ON_ERROR_STOP=1 \
+              -f supabase.sql
+          fi

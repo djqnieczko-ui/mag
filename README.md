@@ -37,6 +37,7 @@ window.APP_CONFIG = {
     - `SUPABASE_DB_NAME`
     - `SUPABASE_DB_USER`
     - `SUPABASE_DB_PASSWORD`
+    Ten wariant jest bardziej niezawodny niz jeden URL, bo workflow laczy sie jawnie przez `-h -p -U -d`.
 5. Workflow `Supabase schema migration` uruchomi sie automatycznie po zmianie pliku `supabase.sql` na galezi `main`.
 6. Możesz uruchomic workflow recznie z zakladki `Actions` przez `Run workflow`.
 
