@@ -20,6 +20,9 @@ const csvMapping = document.getElementById("csv-mapping");
 const csvResult = document.getElementById("csv-result");
 const buildVersion = document.getElementById("build-version");
 const dataMode = document.getElementById("data-mode");
+const filterDepartment = document.getElementById("filter-department");
+const filterCategory = document.getElementById("filter-category");
+const filterProducer = document.getElementById("filter-producer");
 
 const TARGET_FIELDS = [
   { key: "department", label: "Dział" },
@@ -399,16 +402,81 @@ function renderStats(current) {
     .join("");
 }
 
-function renderRows() {
+function renderSelectOptions(select, values, placeholder, selectedValue = "") {
+  select.innerHTML = "";
+
+  const placeholderOption = document.createElement("option");
+  placeholderOption.value = "";
+  placeholderOption.textContent = placeholder;
+  select.appendChild(placeholderOption);
+
+  for (const value of values) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    if (value === selectedValue) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  }
+}
+
+function renderFilterOptions() {
+  const selectedDepartment = filterDepartment.value;
+  const selectedCategory = filterCategory.value;
+  const selectedProducer = filterProducer.value;
+
+  const departments = [...new Set(items.map((item) => item.department))].sort((a, b) =>
+    a.localeCompare(b, "pl")
+  );
+  const categorySource = selectedDepartment
+    ? items.filter((item) => item.department === selectedDepartment)
+    : items;
+  const categories = [...new Set(categorySource.map((item) => item.category))].sort((a, b) =>
+    a.localeCompare(b, "pl")
+  );
+  const producers = [...new Set(items.map((item) => item.producer))].sort((a, b) =>
+    a.localeCompare(b, "pl")
+  );
+
+  renderSelectOptions(filterDepartment, departments, "Wszystkie działy", selectedDepartment);
+  renderSelectOptions(filterCategory, categories, "Wszystkie kategorie", selectedCategory);
+  renderSelectOptions(filterProducer, producers, "Wszyscy producenci", selectedProducer);
+
+  if (selectedDepartment && !departments.includes(selectedDepartment)) {
+    filterDepartment.value = "";
+  }
+  if (selectedCategory && !categories.includes(selectedCategory)) {
+    filterCategory.value = "";
+  }
+  if (selectedProducer && !producers.includes(selectedProducer)) {
+    filterProducer.value = "";
+  }
+}
+
+function getFilteredItems() {
   const query = normalizeText(searchInput.value);
-  const filtered = items
+  const selectedDepartment = filterDepartment.value;
+  const selectedCategory = filterCategory.value;
+  const selectedProducer = filterProducer.value;
+
+  return items
     .filter((item) => {
-      const haystack = [item.department, item.producer, item.category, item.name, item.deviceCode]
+      const haystack = [item.department, item.category, item.producer, item.name, item.deviceCode]
         .map(normalizeText)
         .join(" ");
-      return haystack.includes(query);
+      const matchesQuery = haystack.includes(query);
+      const matchesDepartment = !selectedDepartment || item.department === selectedDepartment;
+      const matchesCategory = !selectedCategory || item.category === selectedCategory;
+      const matchesProducer = !selectedProducer || item.producer === selectedProducer;
+      return matchesQuery && matchesDepartment && matchesCategory && matchesProducer;
     })
     .sort((a, b) => a.name.localeCompare(b.name, "pl"));
+}
+
+function renderRows() {
+  renderFilterOptions();
+  const filtered = getFilteredItems();
 
   itemsBody.innerHTML = "";
 
@@ -495,6 +563,12 @@ searchInput.addEventListener("input", renderRows);
 fields.department.addEventListener("change", () => {
   renderCategoryOptions(fields.department.value);
 });
+filterDepartment.addEventListener("change", () => {
+  renderFilterOptions();
+  renderRows();
+});
+filterCategory.addEventListener("change", renderRows);
+filterProducer.addEventListener("change", renderRows);
 
 prepareImportButton.addEventListener("click", async () => {
   const file = csvFileInput.files?.[0];

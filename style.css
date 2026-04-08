@@ -242,6 +242,17 @@ select:focus {
   min-width: min(300px, 100%);
 }
 
+.filter-bar {
+  margin: 14px 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.filter-bar label {
+  color: #c2d0e3;
+}
+
 .stats {
   margin: 14px 0;
   display: grid;
