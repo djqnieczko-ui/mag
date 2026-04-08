@@ -8,7 +8,6 @@ const inventoryItemsBody = document.getElementById("inventory-items-body");
 const inventoryRowTemplate = document.getElementById("inventory-row-template");
 const wzItemsBody = document.getElementById("wz-items-body");
 const wzRowTemplate = document.getElementById("wz-row-template");
-const rentalsHistoryBody = document.getElementById("rentals-history-body");
 const rentalResult = document.getElementById("rental-result");
 const wzEmpty = document.getElementById("wz-empty");
 const inventorySearch = document.getElementById("inventory-search");
@@ -23,7 +22,6 @@ const contractorFields = {
   phone: document.getElementById("contractor-phone"),
   email: document.getElementById("contractor-email"),
   declaredReturnDate: document.getElementById("declared-return-date"),
-  actualReturnDate: document.getElementById("actual-return-date"),
   notes: document.getElementById("contractor-notes"),
 };
 
@@ -33,7 +31,6 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 
 let inventoryItems = [];
 let rentalDraft = [];
-let rentalHistory = [];
 let hasSplitStockColumns = true;
 
 function normalizeText(value) {
@@ -119,27 +116,6 @@ async function fetchInventory() {
 
   if (error) throw new Error(`Błąd pobierania magazynu: ${error.message}`);
   inventoryItems = (data || []).map(fromDbRow);
-}
-
-async function fetchRentalHistory() {
-  const { data, error } = await supabaseClient
-    .from(RENTAL_ORDERS_TABLE)
-    .select("id, contractor_name, contractor_contact, declared_return_date, actual_return_date, notes, created_at, rental_order_items(quantity)")
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(`Błąd pobierania wypożyczeń: ${error.message}`);
-  rentalHistory = data || [];
-}
-
-async function updateActualReturnDate(orderId, actualReturnDate) {
-  const payload = {
-    actual_return_date: actualReturnDate || null,
-  };
-  const { error } = await supabaseClient
-    .from(RENTAL_ORDERS_TABLE)
-    .update(payload)
-    .eq("id", orderId);
-  if (error) throw new Error(`Błąd zapisu daty zwrotu: ${error.message}`);
 }
 
 function renderSelectOptions(select, values, placeholder, selectedValue = "") {
@@ -284,51 +260,6 @@ function renderInventory() {
   }
 }
 
-function renderRentalHistory() {
-  rentalsHistoryBody.innerHTML = "";
-
-  for (const order of rentalHistory) {
-    const row = document.createElement("tr");
-    const itemCount = (order.rental_order_items || []).reduce(
-      (sum, item) => sum + Number(item.quantity || 0),
-      0
-    );
-    row.innerHTML = `
-      <td>${formatDateTime(order.created_at)}</td>
-      <td>${order.contractor_name || "-"}</td>
-      <td>${order.contractor_contact || "-"}</td>
-      <td>${order.declared_return_date || "-"}</td>
-      <td>
-        <input type="date" data-action="actual-return-input" value="${order.actual_return_date || ""}" />
-      </td>
-      <td>${itemCount}</td>
-      <td>${order.notes || "-"}</td>
-      <td>
-        <button type="button" class="btn btn-light" data-action="save-return-date">Zapisz</button>
-      </td>
-    `;
-
-    const saveButton = row.querySelector('[data-action="save-return-date"]');
-    const input = row.querySelector('[data-action="actual-return-input"]');
-    saveButton.addEventListener("click", async () => {
-      rentalResult.textContent = "";
-      rentalResult.className = "csv-result";
-      try {
-        await updateActualReturnDate(order.id, input.value);
-        await fetchRentalHistory();
-        renderRentalHistory();
-        rentalResult.textContent = "Zapisano faktyczna date zwrotu.";
-        rentalResult.classList.add("success");
-      } catch (error) {
-        rentalResult.textContent = error.message;
-        rentalResult.classList.add("error");
-      }
-    });
-
-    rentalsHistoryBody.appendChild(row);
-  }
-}
-
 function getContractorPayload() {
   return {
     contractor_name: contractorFields.name.value.trim(),
@@ -336,7 +267,6 @@ function getContractorPayload() {
     contractor_phone: contractorFields.phone.value.trim(),
     contractor_email: contractorFields.email.value.trim(),
     declared_return_date: contractorFields.declaredReturnDate.value || null,
-    actual_return_date: contractorFields.actualReturnDate.value || null,
     notes: contractorFields.notes.value.trim(),
   };
 }
@@ -348,12 +278,6 @@ function validateDraft() {
   }
   if (!contractor.declared_return_date) {
     throw new Error("Uzupelnij deklarowana date zwrotu.");
-  }
-  if (
-    contractor.actual_return_date
-    && contractor.actual_return_date < contractor.declared_return_date
-  ) {
-    throw new Error("Faktyczna data zwrotu nie moze byc wczesniejsza niz deklarowana.");
   }
   if (!rentalDraft.length) {
     throw new Error("Dodaj co najmniej jedna pozycje do WZ.");
@@ -445,9 +369,7 @@ saveRentalButton.addEventListener("click", async () => {
     rentalResult.classList.add("success");
     resetRentalForm();
     await fetchInventory();
-    await fetchRentalHistory();
     renderInventory();
-    renderRentalHistory();
   } catch (error) {
     rentalResult.textContent = error.message;
     rentalResult.classList.add("error");
@@ -465,10 +387,8 @@ async function init() {
         : "Dane: Supabase (cloud, bez kolumn total/current)"
     );
     await fetchInventory();
-    await fetchRentalHistory();
     renderDraft();
     renderInventory();
-    renderRentalHistory();
   } catch (error) {
     renderDataMode("Dane: blad konfiguracji Supabase");
     alert(error.message);
