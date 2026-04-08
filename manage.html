@@ -78,8 +78,12 @@
             <input type="number" id="weight" min="0" step="0.01" required placeholder="np. 7.5" />
           </label>
           <label>
-            Ilosc
-            <input type="number" id="quantity" min="0" required placeholder="0" />
+            Calkowity stan
+            <input type="number" id="totalQuantity" min="0" required placeholder="0" />
+          </label>
+          <label>
+            Aktualny stan
+            <input type="number" id="currentQuantity" min="0" required placeholder="0" />
           </label>
           <label>
             Kod urzadzenia
@@ -128,7 +132,8 @@
               <th>Producent</th>
               <th>Nazwa</th>
               <th>Waga (kg)</th>
-              <th>Ilosc</th>
+              <th>Calkowity stan</th>
+              <th>Aktualny stan</th>
               <th>Kod urzadzenia</th>
               <th>Akcje</th>
             </tr>
@@ -146,7 +151,8 @@
       <td data-field="producer"></td>
       <td data-field="name"></td>
       <td data-field="weight"></td>
-      <td data-field="quantity"></td>
+      <td data-field="totalQuantity"></td>
+      <td data-field="currentQuantity"></td>
       <td data-field="deviceCode"></td>
       <td>
         <button class="btn btn-light" data-action="edit">Edytuj</button>

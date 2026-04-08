@@ -15,6 +15,7 @@ const supabaseAnonKey = window.APP_CONFIG?.supabaseAnonKey || "";
 const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKey);
 
 let items = [];
+let hasSplitStockColumns = true;
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -56,22 +57,49 @@ function ensureSupabaseConfigured() {
   }
 }
 
+async function detectWarehouseStockColumns() {
+  const { error } = await supabaseClient
+    .from(TABLE_NAME)
+    .select("device_code, total_quantity, current_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasSplitStockColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /total_quantity|current_quantity/i.test(error.message)) {
+    hasSplitStockColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania schematu magazynu: ${error.message}`);
+}
+
 function fromDbRow(row) {
+  const totalQuantity = Number(row.total_quantity ?? row.quantity ?? 0);
+  const currentQuantity = Number(row.current_quantity ?? row.quantity ?? 0);
+
   return {
     department: row.department,
     producer: row.producer,
     category: row.category,
     name: row.name,
     weight: Number(row.weight),
-    quantity: Number(row.quantity),
+    totalQuantity,
+    currentQuantity,
     deviceCode: row.device_code,
   };
 }
 
 async function fetchItems() {
+  const selectFields = hasSplitStockColumns
+    ? "device_code, department, producer, category, name, weight, quantity, total_quantity, current_quantity"
+    : "device_code, department, producer, category, name, weight, quantity";
+
   const { data, error } = await supabaseClient
     .from(TABLE_NAME)
-    .select("device_code, department, producer, category, name, weight, quantity")
+    .select(selectFields)
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Błąd pobierania danych z chmury: ${error.message}`);
@@ -79,12 +107,14 @@ async function fetchItems() {
 }
 
 function renderStats(current) {
-  const totalQuantity = current.reduce((sum, item) => sum + item.quantity, 0);
-  const totalWeight = current.reduce((sum, item) => sum + item.weight * item.quantity, 0);
+  const totalQuantity = current.reduce((sum, item) => sum + item.totalQuantity, 0);
+  const currentQuantity = current.reduce((sum, item) => sum + item.currentQuantity, 0);
+  const totalWeight = current.reduce((sum, item) => sum + item.weight * item.totalQuantity, 0);
 
   statsContainer.innerHTML = [
     ["Pozycje", current.length],
-    ["Sztuk łącznie", totalQuantity],
+    ["Calkowity stan", totalQuantity],
+    ["Aktualny stan", currentQuantity],
     ["Łączna masa (kg)", totalWeight.toFixed(2)],
   ]
     .map(([label, value]) => `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`)
@@ -157,7 +187,8 @@ function renderRows() {
     row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="name"]').textContent = item.name;
     row.querySelector('[data-field="weight"]').textContent = item.weight.toFixed(2);
-    row.querySelector('[data-field="quantity"]').textContent = item.quantity;
+    row.querySelector('[data-field="totalQuantity"]').textContent = item.totalQuantity;
+    row.querySelector('[data-field="currentQuantity"]').textContent = item.currentQuantity;
     row.querySelector('[data-field="deviceCode"]').textContent = item.deviceCode;
     itemsBody.appendChild(row);
   }
@@ -174,7 +205,12 @@ async function init() {
   loadBuildVersion();
   try {
     ensureSupabaseConfigured();
-    renderDataMode();
+    await detectWarehouseStockColumns();
+    renderDataMode(
+      hasSplitStockColumns
+        ? "Dane: Supabase (cloud)"
+        : "Dane: Supabase (cloud, bez kolumn total/current)"
+    );
     await fetchItems();
     renderRows();
   } catch (error) {

@@ -5,9 +5,28 @@ create table if not exists public.warehouse_items (
   category text not null,
   name text not null,
   weight numeric not null check (weight >= 0),
+  total_quantity integer not null check (total_quantity >= 0),
+  current_quantity integer not null check (current_quantity >= 0 and current_quantity <= total_quantity),
   quantity integer not null check (quantity >= 0),
   updated_at timestamptz not null default now()
 );
+
+alter table public.warehouse_items add column if not exists total_quantity integer;
+alter table public.warehouse_items add column if not exists current_quantity integer;
+
+update public.warehouse_items
+set total_quantity = coalesce(total_quantity, quantity, 0),
+    current_quantity = coalesce(current_quantity, quantity, total_quantity, 0);
+
+update public.warehouse_items
+set total_quantity = greatest(total_quantity, current_quantity),
+    current_quantity = least(current_quantity, greatest(total_quantity, current_quantity)),
+    quantity = current_quantity;
+
+alter table public.warehouse_items alter column total_quantity set default 0;
+alter table public.warehouse_items alter column current_quantity set default 0;
+alter table public.warehouse_items alter column total_quantity set not null;
+alter table public.warehouse_items alter column current_quantity set not null;
 
 alter table public.warehouse_items enable row level security;
 
@@ -80,7 +99,7 @@ create policy "anon_read_rental_items"
   using (true);
 
 drop policy if exists "anon_write_rental_items" on public.rental_order_items;
-create policy "anon_write_rental_items" 
+create policy "anon_write_rental_items"
   on public.rental_order_items
   for all
   to anon

@@ -30,7 +30,8 @@ const TARGET_FIELDS = [
   { key: "producer", label: "Producent" },
   { key: "name", label: "Nazwa" },
   { key: "weight", label: "Waga (kg)" },
-  { key: "quantity", label: "Ilość" },
+  { key: "totalQuantity", label: "Całkowity stan" },
+  { key: "currentQuantity", label: "Aktualny stan" },
   { key: "deviceCode", label: "Kod urządzenia" },
 ];
 
@@ -40,7 +41,8 @@ const fields = {
   category: document.getElementById("category"),
   name: document.getElementById("name"),
   weight: document.getElementById("weight"),
-  quantity: document.getElementById("quantity"),
+  totalQuantity: document.getElementById("totalQuantity"),
+  currentQuantity: document.getElementById("currentQuantity"),
   deviceCode: document.getElementById("deviceCode"),
 };
 
@@ -52,6 +54,7 @@ let items = [];
 let editingCode = null;
 let importRows = [];
 let importHeaders = [];
+let hasSplitStockColumns = true;
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -121,6 +124,18 @@ function renderDataMode(status = "Dane: Supabase (cloud)") {
 }
 
 function toDbRow(item) {
+  if (!hasSplitStockColumns) {
+    return {
+      device_code: item.deviceCode,
+      department: item.department,
+      producer: item.producer,
+      category: item.category,
+      name: item.name,
+      weight: item.weight,
+      quantity: item.currentQuantity,
+    };
+  }
+
   return {
     device_code: item.deviceCode,
     department: item.department,
@@ -128,26 +143,55 @@ function toDbRow(item) {
     category: item.category,
     name: item.name,
     weight: item.weight,
-    quantity: item.quantity,
+    total_quantity: item.totalQuantity,
+    current_quantity: item.currentQuantity,
+    quantity: item.currentQuantity,
   };
 }
 
 function fromDbRow(row) {
+  const totalQuantity = Number(row.total_quantity ?? row.quantity ?? 0);
+  const currentQuantity = Number(row.current_quantity ?? row.quantity ?? 0);
+
   return {
     department: row.department,
     producer: row.producer,
     category: row.category,
     name: row.name,
     weight: Number(row.weight),
-    quantity: Number(row.quantity),
+    totalQuantity,
+    currentQuantity,
     deviceCode: row.device_code,
   };
 }
 
+async function detectWarehouseStockColumns() {
+  const { error } = await supabaseClient
+    .from(TABLE_NAME)
+    .select("device_code, total_quantity, current_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasSplitStockColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /total_quantity|current_quantity/i.test(error.message)) {
+    hasSplitStockColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania schematu magazynu: ${error.message}`);
+}
+
 async function fetchItems() {
+  const selectFields = hasSplitStockColumns
+    ? "device_code, department, producer, category, name, weight, quantity, total_quantity, current_quantity"
+    : "device_code, department, producer, category, name, weight, quantity";
+
   const { data, error } = await supabaseClient
     .from(TABLE_NAME)
-    .select("device_code, department, producer, category, name, weight, quantity")
+    .select(selectFields)
     .order("name", { ascending: true });
 
   if (error) {
@@ -297,7 +341,10 @@ function renderMappingSelectors(headers) {
 
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = "Wybierz nagłówek z CSV";
+    placeholder.textContent =
+      target.key === "totalQuantity" || target.key === "currentQuantity"
+        ? "Opcjonalnie - uzyj wartosci domyslnej"
+        : "Wybierz nagłówek z CSV";
     select.appendChild(placeholder);
 
     for (const header of headers) {
@@ -317,7 +364,10 @@ function getMapping() {
   const mapping = {};
   for (const target of TARGET_FIELDS) {
     const select = document.getElementById(`map-${target.key}`);
-    if (!select || !select.value) {
+    if (!select) {
+      throw new Error(`Brak mapowania dla pola: ${target.label}`);
+    }
+    if (!select.value && target.key !== "totalQuantity" && target.key !== "currentQuantity") {
       throw new Error(`Brak mapowania dla pola: ${target.label}`);
     }
     mapping[target.key] = select.value;
@@ -332,7 +382,14 @@ function buildItemFromCsv(rowMap, rowNumber) {
   const name = String(rowMap.name || "").trim();
   const deviceCode = String(rowMap.deviceCode || "").trim();
   const weight = parseNumber(rowMap.weight);
-  const quantity = parseNumber(rowMap.quantity);
+  const parsedTotalQuantity = parseNumber(rowMap.totalQuantity);
+  const parsedCurrentQuantity = parseNumber(rowMap.currentQuantity);
+  const totalQuantity = Number.isNaN(parsedTotalQuantity)
+    ? parsedCurrentQuantity
+    : parsedTotalQuantity;
+  const currentQuantity = Number.isNaN(parsedCurrentQuantity)
+    ? totalQuantity
+    : parsedCurrentQuantity;
 
   if (!DEPARTMENT_CATEGORIES[department]) {
     throw new Error(`Wiersz ${rowNumber}: niepoprawny dział (${rowMap.department})`);
@@ -352,8 +409,14 @@ function buildItemFromCsv(rowMap, rowNumber) {
   if (Number.isNaN(weight) || weight < 0) {
     throw new Error(`Wiersz ${rowNumber}: niepoprawna waga`);
   }
-  if (Number.isNaN(quantity) || quantity < 0) {
-    throw new Error(`Wiersz ${rowNumber}: niepoprawna ilość`);
+  if (Number.isNaN(totalQuantity) || totalQuantity < 0) {
+    throw new Error(`Wiersz ${rowNumber}: niepoprawny calkowity stan`);
+  }
+  if (Number.isNaN(currentQuantity) || currentQuantity < 0) {
+    throw new Error(`Wiersz ${rowNumber}: niepoprawny aktualny stan`);
+  }
+  if (currentQuantity > totalQuantity) {
+    throw new Error(`Wiersz ${rowNumber}: aktualny stan nie moze byc wiekszy niz calkowity stan`);
   }
 
   return {
@@ -362,7 +425,8 @@ function buildItemFromCsv(rowMap, rowNumber) {
     category,
     name,
     weight,
-    quantity,
+    totalQuantity,
+    currentQuantity,
     deviceCode,
   };
 }
@@ -380,19 +444,22 @@ function fillForm(item) {
   renderCategoryOptions(item.department, item.category);
   fields.name.value = item.name;
   fields.weight.value = item.weight;
-  fields.quantity.value = item.quantity;
+  fields.totalQuantity.value = item.totalQuantity;
+  fields.currentQuantity.value = item.currentQuantity;
   fields.deviceCode.value = item.deviceCode;
   editingCode = item.deviceCode;
   fields.deviceCode.disabled = true;
 }
 
 function renderStats(current) {
-  const totalQuantity = current.reduce((sum, item) => sum + item.quantity, 0);
-  const totalWeight = current.reduce((sum, item) => sum + item.weight * item.quantity, 0);
+  const totalQuantity = current.reduce((sum, item) => sum + item.totalQuantity, 0);
+  const currentQuantity = current.reduce((sum, item) => sum + item.currentQuantity, 0);
+  const totalWeight = current.reduce((sum, item) => sum + item.weight * item.totalQuantity, 0);
 
   statsContainer.innerHTML = [
     ["Pozycje", current.length],
-    ["Sztuk łącznie", totalQuantity],
+    ["Calkowity stan", totalQuantity],
+    ["Aktualny stan", currentQuantity],
     ["Łączna masa (kg)", totalWeight.toFixed(2)],
   ]
     .map(
@@ -487,7 +554,8 @@ function renderRows() {
     row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="name"]').textContent = item.name;
     row.querySelector('[data-field="weight"]').textContent = item.weight.toFixed(2);
-    row.querySelector('[data-field="quantity"]').textContent = item.quantity;
+    row.querySelector('[data-field="totalQuantity"]').textContent = item.totalQuantity;
+    row.querySelector('[data-field="currentQuantity"]').textContent = item.currentQuantity;
     row.querySelector('[data-field="deviceCode"]').textContent = item.deviceCode;
 
     row.querySelector('[data-action="edit"]').addEventListener("click", () => {
@@ -523,7 +591,8 @@ form.addEventListener("submit", async (event) => {
     category: fields.category.value,
     name: fields.name.value.trim(),
     weight: Number(fields.weight.value),
-    quantity: Number(fields.quantity.value),
+    totalQuantity: Number(fields.totalQuantity.value),
+    currentQuantity: Number(fields.currentQuantity.value),
     deviceCode: fields.deviceCode.value.trim(),
   };
 
@@ -534,14 +603,25 @@ form.addEventListener("submit", async (event) => {
     !payload.name ||
     !payload.deviceCode ||
     Number.isNaN(payload.weight) ||
-    Number.isNaN(payload.quantity)
+    Number.isNaN(payload.totalQuantity) ||
+    Number.isNaN(payload.currentQuantity)
   ) {
     alert("Uzupełnij poprawnie formularz.");
     return;
   }
 
-  if (payload.weight < 0 || payload.quantity < 0) {
-    alert("Waga i ilość nie mogą być ujemne.");
+  if (payload.weight < 0 || payload.totalQuantity < 0 || payload.currentQuantity < 0) {
+    alert("Waga i stany nie moga byc ujemne.");
+    return;
+  }
+
+  if (payload.currentQuantity > payload.totalQuantity) {
+    alert("Aktualny stan nie moze byc wiekszy niz calkowity stan.");
+    return;
+  }
+
+  if (!hasSplitStockColumns && payload.totalQuantity !== payload.currentQuantity) {
+    alert("Baza nie ma jeszcze kolumn calkowity/aktualny stan. Najpierw uruchom migracje Supabase.");
     return;
   }
 
@@ -629,6 +709,10 @@ runImportButton.addEventListener("click", async () => {
       imported.push(buildItemFromCsv(mappedRow, index + 2));
     }
 
+    if (!hasSplitStockColumns && imported.some((item) => item.totalQuantity !== item.currentQuantity)) {
+      throw new Error("Baza nie ma jeszcze kolumn calkowity/aktualny stan. Uruchom migracje z supabase.sql przed importem roznych wartosci.");
+    }
+
     await saveManyItems(imported);
     await fetchItems();
     renderRows();
@@ -646,7 +730,12 @@ async function init() {
 
   try {
     ensureSupabaseConfigured();
-    renderDataMode();
+    await detectWarehouseStockColumns();
+    renderDataMode(
+      hasSplitStockColumns
+        ? "Dane: Supabase (cloud)"
+        : "Dane: Supabase (cloud, bez kolumn total/current)"
+    );
     await fetchItems();
     renderRows();
   } catch (error) {

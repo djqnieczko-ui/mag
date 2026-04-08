@@ -34,6 +34,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 let inventoryItems = [];
 let rentalDraft = [];
 let rentalHistory = [];
+let hasSplitStockColumns = true;
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -43,6 +44,25 @@ function ensureSupabaseConfigured() {
   if (!supabaseUrl || !supabaseAnonKey || !supabaseClient) {
     throw new Error("Brak konfiguracji Supabase w config.js");
   }
+}
+
+async function detectWarehouseStockColumns() {
+  const { error } = await supabaseClient
+    .from(TABLE_NAME)
+    .select("device_code, total_quantity, current_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasSplitStockColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /total_quantity|current_quantity/i.test(error.message)) {
+    hasSplitStockColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania schematu magazynu: ${error.message}`);
 }
 
 function formatDateTime(value) {
@@ -80,16 +100,21 @@ function fromDbRow(row) {
     category: row.category,
     producer: row.producer,
     name: row.name,
-    quantity: Number(row.quantity),
+    totalQuantity: Number(row.total_quantity ?? row.quantity ?? 0),
+    currentQuantity: Number(row.current_quantity ?? row.quantity ?? 0),
     weight: Number(row.weight),
     deviceCode: row.device_code,
   };
 }
 
 async function fetchInventory() {
+  const selectFields = hasSplitStockColumns
+    ? "device_code, department, category, producer, name, weight, quantity, total_quantity, current_quantity"
+    : "device_code, department, category, producer, name, weight, quantity";
+
   const { data, error } = await supabaseClient
     .from(TABLE_NAME)
-    .select("device_code, department, category, producer, name, weight, quantity")
+    .select(selectFields)
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Błąd pobierania magazynu: ${error.message}`);
@@ -187,7 +212,7 @@ function addToDraft(item) {
   } else {
     rentalDraft.push({
       ...item,
-      availableQuantity: item.quantity,
+      availableQuantity: item.currentQuantity,
       rentQuantity: 1,
     });
   }
@@ -247,11 +272,12 @@ function renderInventory() {
     row.querySelector('[data-field="category"]').textContent = item.category;
     row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="name"]').textContent = item.name;
-    row.querySelector('[data-field="quantity"]').textContent = item.quantity;
+    row.querySelector('[data-field="totalQuantity"]').textContent = item.totalQuantity;
+    row.querySelector('[data-field="currentQuantity"]').textContent = item.currentQuantity;
     row.querySelector('[data-field="deviceCode"]').textContent = item.deviceCode;
 
     const addButton = row.querySelector('[data-action="add-to-wz"]');
-    addButton.disabled = item.quantity <= 0;
+    addButton.disabled = item.currentQuantity <= 0;
     addButton.addEventListener("click", () => addToDraft(item));
 
     inventoryItemsBody.appendChild(row);
@@ -352,10 +378,10 @@ async function saveRental() {
     if (!liveItem) {
       throw new Error(`Pozycja ${item.name} nie istnieje juz w magazynie.`);
     }
-    if (item.rentQuantity > liveItem.quantity) {
-      throw new Error(`Za duza ilosc dla ${item.name}. Dostepne teraz: ${liveItem.quantity}.`);
+    if (item.rentQuantity > liveItem.currentQuantity) {
+      throw new Error(`Za duza ilosc dla ${item.name}. Dostepne teraz: ${liveItem.currentQuantity}.`);
     }
-    item.availableQuantity = liveItem.quantity;
+    item.availableQuantity = liveItem.currentQuantity;
   }
 
   const { data: orderData, error: orderError } = await supabaseClient
@@ -385,9 +411,12 @@ async function saveRental() {
 
   for (const item of rentalDraft) {
     const newQuantity = item.availableQuantity - item.rentQuantity;
+    const updatePayload = hasSplitStockColumns
+      ? { current_quantity: newQuantity, quantity: newQuantity }
+      : { quantity: newQuantity };
     const { error: updateError } = await supabaseClient
       .from(TABLE_NAME)
-      .update({ quantity: newQuantity })
+      .update(updatePayload)
       .eq("device_code", item.deviceCode);
     if (updateError) throw new Error(`Blad aktualizacji magazynu: ${updateError.message}`);
   }
@@ -429,7 +458,12 @@ async function init() {
   loadBuildVersion();
   try {
     ensureSupabaseConfigured();
-    renderDataMode();
+    await detectWarehouseStockColumns();
+    renderDataMode(
+      hasSplitStockColumns
+        ? "Dane: Supabase (cloud)"
+        : "Dane: Supabase (cloud, bez kolumn total/current)"
+    );
     await fetchInventory();
     await fetchRentalHistory();
     renderDraft();
