@@ -21,6 +21,7 @@ const buildVersion = document.getElementById("build-version");
 
 const TARGET_FIELDS = [
   { key: "department", label: "Dział" },
+  { key: "producer", label: "Producent" },
   { key: "category", label: "Kategoria" },
   { key: "name", label: "Nazwa" },
   { key: "weight", label: "Waga (kg)" },
@@ -30,6 +31,7 @@ const TARGET_FIELDS = [
 
 const fields = {
   department: document.getElementById("department"),
+  producer: document.getElementById("producer"),
   category: document.getElementById("category"),
   name: document.getElementById("name"),
   weight: document.getElementById("weight"),
@@ -48,10 +50,14 @@ function loadItems() {
     const parsed = raw ? JSON.parse(raw) : [];
     return parsed.map((item) => {
       if (item.deviceCode && item.department && item.category) {
-        return item;
+        return {
+          ...item,
+          producer: item.producer || "Brak",
+        };
       }
       return {
         department: "Swiatlo",
+        producer: item.producer || "Brak",
         category: "Inne",
         name: item.name || "",
         weight: Number(item.weight ?? 0),
@@ -273,6 +279,7 @@ function getMapping() {
 
 function buildItemFromCsv(rowMap, rowNumber) {
   const department = normalizeDepartment(rowMap.department);
+  const producer = String(rowMap.producer || "").trim();
   const category = String(rowMap.category || "").trim();
   const name = String(rowMap.name || "").trim();
   const deviceCode = String(rowMap.deviceCode || "").trim();
@@ -284,6 +291,9 @@ function buildItemFromCsv(rowMap, rowNumber) {
   }
   if (!category) {
     throw new Error(`Wiersz ${rowNumber}: pusta kategoria`);
+  }
+  if (!producer) {
+    throw new Error(`Wiersz ${rowNumber}: pusty producent`);
   }
   if (!name) {
     throw new Error(`Wiersz ${rowNumber}: pusta nazwa`);
@@ -300,6 +310,7 @@ function buildItemFromCsv(rowMap, rowNumber) {
 
   return {
     department,
+    producer,
     category,
     name,
     weight,
@@ -317,6 +328,7 @@ function resetForm() {
 
 function fillForm(item) {
   fields.department.value = item.department;
+  fields.producer.value = item.producer;
   renderCategoryOptions(item.department, item.category);
   fields.name.value = item.name;
   fields.weight.value = item.weight;
@@ -346,7 +358,7 @@ function renderRows() {
   const query = normalizeText(searchInput.value);
   const filtered = items
     .filter((item) => {
-      const haystack = [item.department, item.category, item.name, item.deviceCode]
+      const haystack = [item.department, item.producer, item.category, item.name, item.deviceCode]
         .map(normalizeText)
         .join(" ");
       return haystack.includes(query);
@@ -358,6 +370,7 @@ function renderRows() {
   for (const item of filtered) {
     const row = rowTemplate.content.cloneNode(true);
     row.querySelector('[data-field="department"]').textContent = item.department;
+    row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="category"]').textContent = item.category;
     row.querySelector('[data-field="name"]').textContent = item.name;
     row.querySelector('[data-field="weight"]').textContent = item.weight.toFixed(2);
@@ -388,6 +401,7 @@ form.addEventListener("submit", (event) => {
 
   const payload = {
     department: fields.department.value,
+    producer: fields.producer.value.trim(),
     category: fields.category.value,
     name: fields.name.value.trim(),
     weight: Number(fields.weight.value),
@@ -397,6 +411,7 @@ form.addEventListener("submit", (event) => {
 
   if (
     !payload.department ||
+    !payload.producer ||
     !payload.category ||
     !payload.name ||
     !payload.deviceCode ||
