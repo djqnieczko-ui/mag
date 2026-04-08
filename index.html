@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <h1>Magazyn</h1>
+    <p>Prosty panel stanów magazynowych</p>
+  </header>
+
+  <main class="layout">
+    <section class="card form-card">
+      <h2>Dodaj lub zaktualizuj produkt</h2>
+      <form id="item-form">
+        <div class="grid">
+          <label>
+            Nazwa produktu
+            <input type="text" id="name" required placeholder="np. Karton A5" />
+          </label>
+          <label>
+            SKU
+            <input type="text" id="sku" required placeholder="np. A5-BOX-001" />
+          </label>
+          <label>
+            Ilość
+            <input type="number" id="quantity" min="0" required placeholder="0" />
+          </label>
+          <label>
+            Lokalizacja
+            <input type="text" id="location" required placeholder="np. Regał B2" />
+          </label>
+          <label>
+            Min. stan
+            <input type="number" id="minStock" min="0" required placeholder="5" />
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Zapisz produkt</button>
+      </form>
+    </section>
+
+    <section class="card list-card">
+      <div class="list-header">
+        <h2>Lista produktów</h2>
+        <input id="search" type="search" placeholder="Szukaj: nazwa, SKU, lokalizacja" />
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nazwa</th>
+              <th>SKU</th>
+              <th>Ilość</th>
+              <th>Min.</th>
+              <th>Lokalizacja</th>
+              <th>Status</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="items-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <template id="row-template">
+    <tr>
+      <td data-field="name"></td>
+      <td data-field="sku"></td>
+      <td data-field="quantity"></td>
+      <td data-field="minStock"></td>
+      <td data-field="location"></td>
+      <td data-field="status"></td>
+      <td>
+        <button class="btn btn-light" data-action="edit">Edytuj</button>
+        <button class="btn btn-danger" data-action="delete">Usuń</button>
+      </td>
+    </tr>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
