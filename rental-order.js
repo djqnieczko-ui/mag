@@ -22,7 +22,10 @@ const addItemsCard = document.querySelector(".add-items-card");
 
 const orderFields = {
   contractorName: document.getElementById("edit-contractor-name"),
-  contractorContact: document.getElementById("edit-contractor-contact"),
+  contractorNip: document.getElementById("edit-contractor-nip"),
+  contractorStreet: document.getElementById("edit-contractor-street"),
+  contractorPostalCode: document.getElementById("edit-contractor-postal-code"),
+  contractorCity: document.getElementById("edit-contractor-city"),
   contractorPhone: document.getElementById("edit-contractor-phone"),
   contractorEmail: document.getElementById("edit-contractor-email"),
   declaredReturnDate: document.getElementById("edit-declared-return-date"),
@@ -75,6 +78,61 @@ function formatDate(value) {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+function parseContractorContact(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return { nip: "", street: "", postalCode: "", city: "" };
+  }
+
+  const parts = raw.split("|").map((part) => part.trim());
+  let nip = "";
+  let addressPart = raw;
+
+  if (parts.length > 1) {
+    const possibleNip = parts[0].replace(/^NIP:\s*/i, "").trim();
+    nip = possibleNip;
+    addressPart = parts.slice(1).join(" | ");
+  } else if (/^NIP:\s*/i.test(raw)) {
+    nip = raw.replace(/^NIP:\s*/i, "").trim();
+    addressPart = "";
+  }
+
+  let street = "";
+  let postalCode = "";
+  let city = "";
+
+  if (addressPart) {
+    const addressMatch = addressPart.match(/^(.*?),\s*([0-9]{2}-[0-9]{3})\s+(.+)$/);
+    if (addressMatch) {
+      street = addressMatch[1].trim();
+      postalCode = addressMatch[2].trim();
+      city = addressMatch[3].trim();
+    } else {
+      street = addressPart.trim();
+    }
+  }
+
+  return { nip, street, postalCode, city };
+}
+
+function buildContractorContactFromFields() {
+  const nip = orderFields.contractorNip.value.trim();
+  const street = orderFields.contractorStreet.value.trim();
+  const postalCode = orderFields.contractorPostalCode.value.trim();
+  const city = orderFields.contractorCity.value.trim();
+
+  const cityLine = [postalCode, city].filter(Boolean).join(" ");
+  const address = [street, cityLine].filter(Boolean).join(", ");
+
+  if (nip && address) {
+    return `NIP: ${nip} | ${address}`;
+  }
+  if (nip) {
+    return `NIP: ${nip}`;
+  }
+  return address;
 }
 
 async function loadBuildVersion() {
@@ -538,8 +596,12 @@ function fillSelectedOrderForm(order) {
     return;
   }
 
+  const parsedContact = parseContractorContact(order.contractorContact);
   orderFields.contractorName.value = order.contractorName;
-  orderFields.contractorContact.value = order.contractorContact;
+  orderFields.contractorNip.value = parsedContact.nip;
+  orderFields.contractorStreet.value = parsedContact.street;
+  orderFields.contractorPostalCode.value = parsedContact.postalCode;
+  orderFields.contractorCity.value = parsedContact.city;
   orderFields.contractorPhone.value = order.contractorPhone;
   orderFields.contractorEmail.value = order.contractorEmail;
   orderFields.declaredReturnDate.value = order.declaredReturnDate;
@@ -593,7 +655,7 @@ function addItemToSelectedOrder(item) {
 function getOrderUpdatePayload() {
   return {
     contractor_name: orderFields.contractorName.value.trim(),
-    contractor_contact: orderFields.contractorContact.value.trim(),
+    contractor_contact: buildContractorContactFromFields(),
     contractor_phone: orderFields.contractorPhone.value.trim(),
     contractor_email: orderFields.contractorEmail.value.trim(),
     declared_return_date: orderFields.declaredReturnDate.value || null,
@@ -1033,7 +1095,7 @@ async function deleteSelectedOrder() {
       (item) => (getOriginalQuantityMap(order).get(item.deviceCode) || 0) !== item.quantity
     ) ||
     orderFields.contractorName.value.trim() !== order.contractorName ||
-    orderFields.contractorContact.value.trim() !== order.contractorContact ||
+    buildContractorContactFromFields() !== order.contractorContact ||
     orderFields.contractorPhone.value.trim() !== order.contractorPhone ||
     orderFields.contractorEmail.value.trim() !== order.contractorEmail ||
     (orderFields.declaredReturnDate.value || "") !== (order.declaredReturnDate || "") ||
