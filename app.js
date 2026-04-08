@@ -1,4 +1,10 @@
 const STORAGE_KEY = "warehouse-items-v1";
+const DEPARTMENT_CATEGORIES = {
+  Swiatlo: ["Lampy", "Reflektory", "Sterowanie", "Okablowanie"],
+  Dzwiek: ["Miksery", "Mikrofony", "Kolumny", "Procesory"],
+  Scena: ["Podesty", "Kurtyny", "Elementy sceny", "Bezpieczenstwo"],
+  Kraty: ["Kraty glowne", "Laczniki", "Mocowania", "Akcesoria"],
+};
 
 const form = document.getElementById("item-form");
 const searchInput = document.getElementById("search");
@@ -7,20 +13,34 @@ const rowTemplate = document.getElementById("row-template");
 const statsContainer = document.getElementById("stats");
 
 const fields = {
+  department: document.getElementById("department"),
+  category: document.getElementById("category"),
   name: document.getElementById("name"),
-  sku: document.getElementById("sku"),
+  weight: document.getElementById("weight"),
   quantity: document.getElementById("quantity"),
-  location: document.getElementById("location"),
-  minStock: document.getElementById("minStock"),
+  deviceCode: document.getElementById("deviceCode"),
 };
 
 let items = loadItems();
-let editingSku = null;
+let editingCode = null;
 
 function loadItems() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return parsed.map((item) => {
+      if (item.deviceCode && item.department && item.category) {
+        return item;
+      }
+      return {
+        department: "Swiatlo",
+        category: "Inne",
+        name: item.name || "",
+        weight: Number(item.weight ?? 0),
+        quantity: Number(item.quantity ?? 0),
+        deviceCode: item.deviceCode || item.sku || "",
+      };
+    });
   } catch {
     return [];
   }
@@ -34,12 +54,8 @@ function normalizeText(value) {
   return String(value).trim().toLowerCase();
 }
 
-function getStatus(item) {
-  return item.quantity <= item.minStock ? "Niski" : "OK";
-}
-
 function upsertItem(newItem) {
-  const existingIndex = items.findIndex((item) => item.sku === newItem.sku);
+  const existingIndex = items.findIndex((item) => item.deviceCode === newItem.deviceCode);
   if (existingIndex >= 0) {
     items[existingIndex] = newItem;
   } else {
@@ -47,30 +63,52 @@ function upsertItem(newItem) {
   }
 }
 
+function renderCategoryOptions(selectedDepartment, selectedCategory = "") {
+  const categories = DEPARTMENT_CATEGORIES[selectedDepartment] || [];
+  fields.category.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = categories.length ? "Wybierz kategorię" : "Brak kategorii";
+  fields.category.appendChild(placeholder);
+
+  for (const category of categories) {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    if (category === selectedCategory) {
+      option.selected = true;
+    }
+    fields.category.appendChild(option);
+  }
+}
+
 function resetForm() {
   form.reset();
-  editingSku = null;
-  fields.sku.disabled = false;
+  editingCode = null;
+  fields.deviceCode.disabled = false;
+  renderCategoryOptions(fields.department.value);
 }
 
 function fillForm(item) {
+  fields.department.value = item.department;
+  renderCategoryOptions(item.department, item.category);
   fields.name.value = item.name;
-  fields.sku.value = item.sku;
+  fields.weight.value = item.weight;
   fields.quantity.value = item.quantity;
-  fields.location.value = item.location;
-  fields.minStock.value = item.minStock;
-  editingSku = item.sku;
-  fields.sku.disabled = true;
+  fields.deviceCode.value = item.deviceCode;
+  editingCode = item.deviceCode;
+  fields.deviceCode.disabled = true;
 }
 
 function renderStats(current) {
-  const lowCount = current.filter((item) => item.quantity <= item.minStock).length;
   const totalQuantity = current.reduce((sum, item) => sum + item.quantity, 0);
+  const totalWeight = current.reduce((sum, item) => sum + item.weight * item.quantity, 0);
 
   statsContainer.innerHTML = [
-    ["Produkty", current.length],
+    ["Pozycje", current.length],
     ["Sztuk łącznie", totalQuantity],
-    ["Niski stan", lowCount],
+    ["Łączna masa (kg)", totalWeight.toFixed(2)],
   ]
     .map(
       ([label, value]) =>
@@ -83,7 +121,9 @@ function renderRows() {
   const query = normalizeText(searchInput.value);
   const filtered = items
     .filter((item) => {
-      const haystack = [item.name, item.sku, item.location].map(normalizeText).join(" ");
+      const haystack = [item.department, item.category, item.name, item.deviceCode]
+        .map(normalizeText)
+        .join(" ");
       return haystack.includes(query);
     })
     .sort((a, b) => a.name.localeCompare(b.name, "pl"));
@@ -92,15 +132,12 @@ function renderRows() {
 
   for (const item of filtered) {
     const row = rowTemplate.content.cloneNode(true);
+    row.querySelector('[data-field="department"]').textContent = item.department;
+    row.querySelector('[data-field="category"]').textContent = item.category;
     row.querySelector('[data-field="name"]').textContent = item.name;
-    row.querySelector('[data-field="sku"]').textContent = item.sku;
+    row.querySelector('[data-field="weight"]').textContent = item.weight.toFixed(2);
     row.querySelector('[data-field="quantity"]').textContent = item.quantity;
-    row.querySelector('[data-field="minStock"]').textContent = item.minStock;
-    row.querySelector('[data-field="location"]').textContent = item.location;
-
-    const statusEl = row.querySelector('[data-field="status"]');
-    const status = getStatus(item);
-    statusEl.innerHTML = `<span class="status-pill ${status === "OK" ? "status-ok" : "status-low"}">${status}</span>`;
+    row.querySelector('[data-field="deviceCode"]').textContent = item.deviceCode;
 
     row.querySelector('[data-action="edit"]').addEventListener("click", () => {
       fillForm(item);
@@ -110,7 +147,7 @@ function renderRows() {
 
     row.querySelector('[data-action="delete"]').addEventListener("click", () => {
       if (!confirm(`Usunąć ${item.name}?`)) return;
-      items = items.filter((entry) => entry.sku !== item.sku);
+      items = items.filter((entry) => entry.deviceCode !== item.deviceCode);
       saveItems();
       renderRows();
     });
@@ -125,20 +162,33 @@ form.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const payload = {
+    department: fields.department.value,
+    category: fields.category.value,
     name: fields.name.value.trim(),
-    sku: fields.sku.value.trim(),
+    weight: Number(fields.weight.value),
     quantity: Number(fields.quantity.value),
-    location: fields.location.value.trim(),
-    minStock: Number(fields.minStock.value),
+    deviceCode: fields.deviceCode.value.trim(),
   };
 
-  if (!payload.name || !payload.sku || Number.isNaN(payload.quantity)) {
+  if (
+    !payload.department ||
+    !payload.category ||
+    !payload.name ||
+    !payload.deviceCode ||
+    Number.isNaN(payload.weight) ||
+    Number.isNaN(payload.quantity)
+  ) {
     alert("Uzupełnij poprawnie formularz.");
     return;
   }
 
-  if (editingSku && editingSku !== payload.sku) {
-    payload.sku = editingSku;
+  if (payload.weight < 0 || payload.quantity < 0) {
+    alert("Waga i ilość nie mogą być ujemne.");
+    return;
+  }
+
+  if (editingCode && editingCode !== payload.deviceCode) {
+    payload.deviceCode = editingCode;
   }
 
   upsertItem(payload);
@@ -148,5 +198,9 @@ form.addEventListener("submit", (event) => {
 });
 
 searchInput.addEventListener("input", renderRows);
+fields.department.addEventListener("change", () => {
+  renderCategoryOptions(fields.department.value);
+});
 
+renderCategoryOptions(fields.department.value);
 renderRows();

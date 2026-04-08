@@ -24,34 +24,46 @@
       <form id="item-form">
         <div class="grid">
           <label>
-            Nazwa produktu
-            <input type="text" id="name" required placeholder="np. Karton A5" />
+            Dział
+            <select id="department" required>
+              <option value="">Wybierz dział</option>
+              <option value="Swiatlo">Swiatlo</option>
+              <option value="Dzwiek">Dzwiek</option>
+              <option value="Scena">Scena</option>
+              <option value="Kraty">Kraty</option>
+            </select>
           </label>
           <label>
-            SKU
-            <input type="text" id="sku" required placeholder="np. A5-BOX-001" />
+            Kategoria
+            <select id="category" required>
+              <option value="">Najpierw wybierz dział</option>
+            </select>
+          </label>
+          <label>
+            Nazwa
+            <input type="text" id="name" required placeholder="np. Reflektor LED 200W" />
+          </label>
+          <label>
+            Waga (kg)
+            <input type="number" id="weight" min="0" step="0.01" required placeholder="np. 7.5" />
           </label>
           <label>
             Ilość
             <input type="number" id="quantity" min="0" required placeholder="0" />
           </label>
           <label>
-            Lokalizacja
-            <input type="text" id="location" required placeholder="np. Regał B2" />
-          </label>
-          <label>
-            Min. stan
-            <input type="number" id="minStock" min="0" required placeholder="5" />
+            Kod urządzenia
+            <input type="text" id="deviceCode" required placeholder="np. SW-LED-001" />
           </label>
         </div>
-        <button type="submit" class="btn btn-primary">Zapisz produkt</button>
+        <button type="submit" class="btn btn-primary">Zapisz pozycję</button>
       </form>
     </section>
 
     <section class="card list-card">
       <div class="list-header">
-        <h2>Lista produktów</h2>
-        <input id="search" type="search" placeholder="Szukaj: nazwa, SKU, lokalizacja" />
+        <h2>Lista pozycji</h2>
+        <input id="search" type="search" placeholder="Szukaj: dział, kategoria, nazwa, kod" />
       </div>
 
       <div class="stats" id="stats"></div>
@@ -60,12 +72,12 @@
         <table>
           <thead>
             <tr>
+              <th>Dział</th>
+              <th>Kategoria</th>
               <th>Nazwa</th>
-              <th>SKU</th>
+              <th>Waga (kg)</th>
               <th>Ilość</th>
-              <th>Min.</th>
-              <th>Lokalizacja</th>
-              <th>Status</th>
+              <th>Kod urządzenia</th>
               <th>Akcje</th>
             </tr>
           </thead>
@@ -77,12 +89,12 @@
 
   <template id="row-template">
     <tr>
+      <td data-field="department"></td>
+      <td data-field="category"></td>
       <td data-field="name"></td>
-      <td data-field="sku"></td>
+      <td data-field="weight"></td>
       <td data-field="quantity"></td>
-      <td data-field="minStock"></td>
-      <td data-field="location"></td>
-      <td data-field="status"></td>
+      <td data-field="deviceCode"></td>
       <td>
         <button class="btn btn-light" data-action="edit">Edytuj</button>
         <button class="btn btn-danger" data-action="delete">Usuń</button>
