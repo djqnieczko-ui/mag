@@ -35,25 +35,20 @@
 
   <main class="layout rental-layout">
     <section class="card contractor-card">
-      <h2>Dane kontrahenta</h2>
+      <div class="section-header">
+        <div>
+          <h2>Kontrahent</h2>
+          <p class="muted">Zamiast wpisywania recznego wybierz kontrahenta z listy.</p>
+        </div>
+        <button type="button" class="btn btn-light" id="pick-contractor">Wybierz z listy</button>
+      </div>
+
+      <div id="selected-contractor-summary" class="detail-summary">
+        <div class="detail-chip"><span>Kontrahent</span><strong>Nie wybrano</strong></div>
+      </div>
+
       <form id="contractor-form">
         <div class="grid">
-          <label>
-            Nazwa kontrahenta
-            <input type="text" id="contractor-name" required placeholder="np. Event Pro Sp. z o.o." />
-          </label>
-          <label>
-            Osoba kontaktowa
-            <input type="text" id="contractor-contact" placeholder="np. Jan Kowalski" />
-          </label>
-          <label>
-            Telefon
-            <input type="text" id="contractor-phone" placeholder="np. 600 700 800" />
-          </label>
-          <label>
-            Email
-            <input type="email" id="contractor-email" placeholder="np. biuro@firma.pl" />
-          </label>
           <label>
             Deklarowana data zwrotu
             <input type="date" id="declared-return-date" required />
@@ -163,6 +158,47 @@
       <td><input type="number" data-field="rentQuantity" min="1" /></td>
       <td data-field="deviceCode"></td>
       <td><button type="button" class="btn btn-danger" data-action="remove-from-wz">Usun</button></td>
+    </tr>
+  </template>
+
+  <div id="contractor-picker-modal" class="modal-shell hidden" role="dialog" aria-modal="true" aria-labelledby="contractor-picker-title">
+    <div class="modal-backdrop" data-action="close-contractor-picker"></div>
+    <div class="modal-card">
+      <div class="section-header modal-header">
+        <h3 id="contractor-picker-title">Wybierz kontrahenta</h3>
+        <button type="button" class="btn btn-light" data-action="close-contractor-picker">Zamknij</button>
+      </div>
+
+      <div class="list-header">
+        <input id="contractor-picker-search" type="search" placeholder="Szukaj: firma, NIP, kod, miejscowosc, telefon, email" />
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nazwa firmy</th>
+              <th>NIP</th>
+              <th>Miejscowosc</th>
+              <th>Telefon</th>
+              <th>Email</th>
+              <th>Akcja</th>
+            </tr>
+          </thead>
+          <tbody id="contractor-picker-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <template id="contractor-picker-row-template">
+    <tr>
+      <td data-field="name"></td>
+      <td data-field="nip"></td>
+      <td data-field="city"></td>
+      <td data-field="phone"></td>
+      <td data-field="email"></td>
+      <td><button type="button" class="btn btn-primary" data-action="select-contractor">Wybierz</button></td>
     </tr>
   </template>
 

@@ -1,6 +1,7 @@
 const TABLE_NAME = "warehouse_items";
 const RENTAL_ORDERS_TABLE = "rental_orders";
 const RENTAL_ITEMS_TABLE = "rental_order_items";
+const CONTRACTORS_TABLE = "contractors";
 
 const buildVersion = document.getElementById("build-version");
 const dataMode = document.getElementById("data-mode");
@@ -15,12 +16,14 @@ const filterDepartment = document.getElementById("filter-department");
 const filterCategory = document.getElementById("filter-category");
 const filterProducer = document.getElementById("filter-producer");
 const saveRentalButton = document.getElementById("save-rental");
+const selectedContractorSummary = document.getElementById("selected-contractor-summary");
+const pickContractorButton = document.getElementById("pick-contractor");
+const contractorPickerModal = document.getElementById("contractor-picker-modal");
+const contractorPickerSearch = document.getElementById("contractor-picker-search");
+const contractorPickerBody = document.getElementById("contractor-picker-body");
+const contractorPickerRowTemplate = document.getElementById("contractor-picker-row-template");
 
 const contractorFields = {
-  name: document.getElementById("contractor-name"),
-  contact: document.getElementById("contractor-contact"),
-  phone: document.getElementById("contractor-phone"),
-  email: document.getElementById("contractor-email"),
   declaredReturnDate: document.getElementById("declared-return-date"),
   notes: document.getElementById("contractor-notes"),
 };
@@ -34,6 +37,9 @@ let rentalDraft = [];
 let hasSplitStockColumns = true;
 let hasRentalMetricsColumns = true;
 let hasRentalItemReturnColumns = true;
+let hasContractorsTable = true;
+let contractors = [];
+let selectedContractor = null;
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -102,6 +108,25 @@ async function detectRentalItemReturnColumns() {
   throw new Error(`Błąd sprawdzania schematu pozycji wypozyczen: ${error.message}`);
 }
 
+async function detectContractorsTable() {
+  const { error } = await supabaseClient
+    .from(CONTRACTORS_TABLE)
+    .select("id, name")
+    .limit(1);
+
+  if (!error) {
+    hasContractorsTable = true;
+    return;
+  }
+
+  if (error.code === "42P01") {
+    hasContractorsTable = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania tabeli kontrahentow: ${error.message}`);
+}
+
 function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "nieznana data";
@@ -156,6 +181,98 @@ async function fetchInventory() {
 
   if (error) throw new Error(`Błąd pobierania magazynu: ${error.message}`);
   inventoryItems = (data || []).map(fromDbRow);
+}
+
+async function fetchContractors() {
+  if (!hasContractorsTable) {
+    contractors = [];
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from(CONTRACTORS_TABLE)
+    .select("id, name, nip, street, postal_code, city, phone, email, notes")
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`Błąd pobierania kontrahentow: ${error.message}`);
+  contractors = data || [];
+}
+
+function renderSelectedContractorSummary() {
+  if (!selectedContractor) {
+    selectedContractorSummary.innerHTML = "<div class=\"detail-chip\"><span>Kontrahent</span><strong>Nie wybrano</strong></div>";
+    return;
+  }
+
+  const address = [selectedContractor.street, selectedContractor.postal_code, selectedContractor.city]
+    .filter(Boolean)
+    .join(", ");
+
+  selectedContractorSummary.innerHTML = [
+    ["Nazwa firmy", selectedContractor.name || "-"],
+    ["NIP", selectedContractor.nip || "-"],
+    ["Adres", address || "-"],
+    ["Telefon", selectedContractor.phone || "-"],
+    ["Email", selectedContractor.email || "-"],
+  ]
+    .map(([label, value]) => `<div class=\"detail-chip\"><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
+}
+
+function getFilteredContractors() {
+  const query = normalizeText(contractorPickerSearch.value);
+  if (!query) return contractors;
+
+  return contractors.filter((contractor) => {
+    const haystack = [
+      contractor.name,
+      contractor.nip,
+      contractor.street,
+      contractor.postal_code,
+      contractor.city,
+      contractor.phone,
+      contractor.email,
+    ]
+      .map(normalizeText)
+      .join(" ");
+    return haystack.includes(query);
+  });
+}
+
+function renderContractorPicker() {
+  contractorPickerBody.innerHTML = "";
+  const rows = getFilteredContractors();
+
+  for (const contractor of rows) {
+    const row = contractorPickerRowTemplate.content.cloneNode(true);
+    row.querySelector('[data-field="name"]').textContent = contractor.name || "-";
+    row.querySelector('[data-field="nip"]').textContent = contractor.nip || "-";
+    row.querySelector('[data-field="city"]').textContent = contractor.city || "-";
+    row.querySelector('[data-field="phone"]').textContent = contractor.phone || "-";
+    row.querySelector('[data-field="email"]').textContent = contractor.email || "-";
+    row.querySelector('[data-action="select-contractor"]').addEventListener("click", () => {
+      selectedContractor = contractor;
+      renderSelectedContractorSummary();
+      closeContractorPicker();
+    });
+    contractorPickerBody.appendChild(row);
+  }
+}
+
+function openContractorPicker() {
+  if (!hasContractorsTable) {
+    rentalResult.textContent = "Tabela kontrahentow nie jest jeszcze dostepna. Poczekaj na migracje Supabase.";
+    rentalResult.className = "csv-result error";
+    return;
+  }
+
+  contractorPickerModal.classList.remove("hidden");
+  contractorPickerSearch.focus();
+  renderContractorPicker();
+}
+
+function closeContractorPicker() {
+  contractorPickerModal.classList.add("hidden");
 }
 
 function renderSelectOptions(select, values, placeholder, selectedValue = "") {
@@ -301,11 +418,19 @@ function renderInventory() {
 }
 
 function getContractorPayload() {
+  const contractorName = selectedContractor?.name || "";
+  const contractorAddress = [selectedContractor?.street, selectedContractor?.postal_code, selectedContractor?.city]
+    .filter(Boolean)
+    .join(", ");
+  const contractorContact = selectedContractor?.nip
+    ? `NIP: ${selectedContractor.nip}${contractorAddress ? ` | ${contractorAddress}` : ""}`
+    : contractorAddress;
+
   return {
-    contractor_name: contractorFields.name.value.trim(),
-    contractor_contact: contractorFields.contact.value.trim(),
-    contractor_phone: contractorFields.phone.value.trim(),
-    contractor_email: contractorFields.email.value.trim(),
+    contractor_name: contractorName,
+    contractor_contact: contractorContact,
+    contractor_phone: selectedContractor?.phone || "",
+    contractor_email: selectedContractor?.email || "",
     declared_return_date: contractorFields.declaredReturnDate.value || null,
     notes: contractorFields.notes.value.trim(),
   };
@@ -314,7 +439,7 @@ function getContractorPayload() {
 function validateDraft() {
   const contractor = getContractorPayload();
   if (!contractor.contractor_name) {
-    throw new Error("Uzupelnij nazwe kontrahenta.");
+    throw new Error("Wybierz kontrahenta z listy.");
   }
   if (!contractor.declared_return_date) {
     throw new Error("Uzupelnij deklarowana date zwrotu.");
@@ -407,6 +532,9 @@ function resetRentalForm() {
   for (const field of Object.values(contractorFields)) {
     field.value = "";
   }
+  selectedContractor = null;
+  contractorPickerSearch.value = "";
+  renderSelectedContractorSummary();
   rentalDraft = [];
   renderDraft();
 }
@@ -415,6 +543,19 @@ inventorySearch.addEventListener("input", renderInventory);
 filterDepartment.addEventListener("change", renderInventory);
 filterCategory.addEventListener("change", renderInventory);
 filterProducer.addEventListener("change", renderInventory);
+pickContractorButton.addEventListener("click", openContractorPicker);
+contractorPickerSearch.addEventListener("input", renderContractorPicker);
+contractorPickerModal.addEventListener("click", (event) => {
+  const action = event.target.getAttribute("data-action");
+  if (action === "close-contractor-picker") {
+    closeContractorPicker();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !contractorPickerModal.classList.contains("hidden")) {
+    closeContractorPicker();
+  }
+});
 
 saveRentalButton.addEventListener("click", async () => {
   rentalResult.textContent = "";
@@ -439,6 +580,7 @@ async function init() {
     ensureSupabaseConfigured();
     await detectRentalMetricsColumns();
     await detectRentalItemReturnColumns();
+    await detectContractorsTable();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns
@@ -446,6 +588,8 @@ async function init() {
         : "Dane: Supabase (cloud, bez kolumn total/current)"
     );
     await fetchInventory();
+    await fetchContractors();
+    renderSelectedContractorSummary();
     renderDraft();
     renderInventory();
   } catch (error) {
