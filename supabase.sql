@@ -132,7 +132,10 @@ alter table public.rental_orders alter column returned_quantity set not null;
 create table if not exists public.contractors (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  contact text,
+  nip text,
+  street text,
+  postal_code text,
+  city text,
   phone text,
   email text,
   notes text,
@@ -140,7 +143,10 @@ create table if not exists public.contractors (
 );
 
 alter table public.contractors add column if not exists name text;
-alter table public.contractors add column if not exists contact text;
+alter table public.contractors add column if not exists nip text;
+alter table public.contractors add column if not exists street text;
+alter table public.contractors add column if not exists postal_code text;
+alter table public.contractors add column if not exists city text;
 alter table public.contractors add column if not exists phone text;
 alter table public.contractors add column if not exists email text;
 alter table public.contractors add column if not exists notes text;
@@ -148,14 +154,36 @@ alter table public.contractors add column if not exists created_at timestamptz;
 
 update public.contractors
 set name = coalesce(name, 'Nieznany kontrahent'),
+    nip = coalesce(nip, ''),
+    street = coalesce(street, ''),
+    postal_code = coalesce(postal_code, ''),
+    city = coalesce(city, ''),
+    phone = coalesce(phone, ''),
+    email = coalesce(email, ''),
     created_at = coalesce(created_at, now());
 
 alter table public.contractors alter column name set not null;
+alter table public.contractors alter column nip set not null;
+alter table public.contractors alter column street set not null;
+alter table public.contractors alter column postal_code set not null;
+alter table public.contractors alter column city set not null;
+alter table public.contractors alter column phone set not null;
+alter table public.contractors alter column email set not null;
 alter table public.contractors alter column created_at set not null;
+alter table public.contractors alter column nip set default '';
+alter table public.contractors alter column street set default '';
+alter table public.contractors alter column postal_code set default '';
+alter table public.contractors alter column city set default '';
+alter table public.contractors alter column phone set default '';
+alter table public.contractors alter column email set default '';
 alter table public.contractors alter column created_at set default now();
 
 create unique index if not exists contractors_name_unique_idx
   on public.contractors (lower(name));
+
+create unique index if not exists contractors_nip_unique_idx
+  on public.contractors (nip)
+  where nip <> '';
 
 alter table public.rental_orders enable row level security;
 alter table public.rental_order_items enable row level security;

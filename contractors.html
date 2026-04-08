@@ -44,7 +44,7 @@
       </div>
 
       <div class="list-header">
-        <input id="contractors-search" type="search" placeholder="Szukaj: nazwa, kontakt, email, telefon" />
+        <input id="contractors-search" type="search" placeholder="Szukaj: firma, NIP, ulica, kod, miejscowosc, telefon, email" />
       </div>
 
       <div class="stats" id="contractors-stats"></div>
@@ -53,8 +53,11 @@
         <table>
           <thead>
             <tr>
-              <th>Kontrahent</th>
-              <th>Kontakt</th>
+              <th>Nazwa firmy</th>
+              <th>NIP</th>
+              <th>Ulica</th>
+              <th>Kod pocztowy</th>
+              <th>Miejscowosc</th>
               <th>Telefon</th>
               <th>Email</th>
               <th>WZ wszystkie</th>
@@ -82,20 +85,32 @@
       <form id="contractor-create-form" class="modal-form">
         <div class="grid">
           <label>
-            Nazwa kontrahenta
+            Nazwa firmy
             <input type="text" id="new-contractor-name" required placeholder="np. Event Pro Sp. z o.o." />
           </label>
           <label>
-            Osoba kontaktowa
-            <input type="text" id="new-contractor-contact" placeholder="np. Jan Kowalski" />
+            NIP
+            <input type="text" id="new-contractor-nip" required placeholder="np. 1234567890" />
+          </label>
+          <label>
+            Ulica
+            <input type="text" id="new-contractor-street" required placeholder="np. Dluga 15" />
+          </label>
+          <label>
+            Kod pocztowy
+            <input type="text" id="new-contractor-postal-code" required placeholder="np. 00-001" />
+          </label>
+          <label>
+            Miejscowosc
+            <input type="text" id="new-contractor-city" required placeholder="np. Warszawa" />
           </label>
           <label>
             Telefon
-            <input type="text" id="new-contractor-phone" placeholder="np. 600 700 800" />
+            <input type="text" id="new-contractor-phone" required placeholder="np. 600 700 800" />
           </label>
           <label>
             Email
-            <input type="email" id="new-contractor-email" placeholder="np. biuro@firma.pl" />
+            <input type="email" id="new-contractor-email" required placeholder="np. biuro@firma.pl" />
           </label>
           <label class="grid-span-2">
             Uwagi
@@ -114,7 +129,10 @@
   <template id="contractor-row-template">
     <tr>
       <td data-field="name"></td>
-      <td data-field="contact"></td>
+      <td data-field="nip"></td>
+      <td data-field="street"></td>
+      <td data-field="postalCode"></td>
+      <td data-field="city"></td>
       <td data-field="phone"></td>
       <td data-field="email"></td>
       <td data-field="allCount"></td>

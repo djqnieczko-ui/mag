@@ -14,7 +14,10 @@ const contractorCreateForm = document.getElementById("contractor-create-form");
 
 const contractorFields = {
   name: document.getElementById("new-contractor-name"),
-  contact: document.getElementById("new-contractor-contact"),
+  nip: document.getElementById("new-contractor-nip"),
+  street: document.getElementById("new-contractor-street"),
+  postalCode: document.getElementById("new-contractor-postal-code"),
+  city: document.getElementById("new-contractor-city"),
   phone: document.getElementById("new-contractor-phone"),
   email: document.getElementById("new-contractor-email"),
   notes: document.getElementById("new-contractor-notes"),
@@ -136,7 +139,7 @@ async function fetchContractors() {
 
   const { data, error } = await supabaseClient
     .from(CONTRACTORS_TABLE)
-    .select("id, name, contact, phone, email, notes, created_at")
+    .select("*")
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Blad pobierania kontrahentow: ${error.message}`);
@@ -166,7 +169,10 @@ function buildContractorsViewModel() {
     map.set(key, {
       id: contractor.id,
       name: contractor.name,
-      contact: contractor.contact || "",
+      nip: contractor.nip || "",
+      street: contractor.street || "",
+      postalCode: contractor.postal_code || "",
+      city: contractor.city || "",
       phone: contractor.phone || "",
       email: contractor.email || "",
       allCount: 0,
@@ -183,7 +189,10 @@ function buildContractorsViewModel() {
       map.set(key, {
         id: null,
         name,
-        contact: order.contractor_contact || "",
+        nip: "",
+        street: "",
+        postalCode: "",
+        city: "",
         phone: order.contractor_phone || "",
         email: order.contractor_email || "",
         allCount: 0,
@@ -207,7 +216,6 @@ function buildContractorsViewModel() {
       item.inProgressCount += 1;
     }
 
-    if (!item.contact && order.contractor_contact) item.contact = order.contractor_contact;
     if (!item.phone && order.contractor_phone) item.phone = order.contractor_phone;
     if (!item.email && order.contractor_email) item.email = order.contractor_email;
   }
@@ -221,7 +229,7 @@ function getFilteredContractors() {
 
   if (!query) return rows;
   return rows.filter((row) => {
-    const haystack = [row.name, row.contact, row.phone, row.email]
+    const haystack = [row.name, row.nip, row.street, row.postalCode, row.city, row.phone, row.email]
       .map(normalizeText)
       .join(" ");
     return haystack.includes(query);
@@ -253,7 +261,10 @@ function renderContractorsTable() {
   for (const rowData of rows) {
     const row = contractorRowTemplate.content.cloneNode(true);
     row.querySelector('[data-field="name"]').textContent = rowData.name;
-    row.querySelector('[data-field="contact"]').textContent = rowData.contact || "-";
+    row.querySelector('[data-field="nip"]').textContent = rowData.nip || "-";
+    row.querySelector('[data-field="street"]').textContent = rowData.street || "-";
+    row.querySelector('[data-field="postalCode"]').textContent = rowData.postalCode || "-";
+    row.querySelector('[data-field="city"]').textContent = rowData.city || "-";
     row.querySelector('[data-field="phone"]').textContent = rowData.phone || "-";
     row.querySelector('[data-field="email"]').textContent = rowData.email || "-";
     row.querySelector('[data-field="allCount"]').textContent = rowData.allCount;
@@ -286,14 +297,35 @@ async function createContractor(event) {
 
   const payload = {
     name: contractorFields.name.value.trim(),
-    contact: contractorFields.contact.value.trim(),
+    nip: contractorFields.nip.value.trim(),
+    street: contractorFields.street.value.trim(),
+    postal_code: contractorFields.postalCode.value.trim(),
+    city: contractorFields.city.value.trim(),
     phone: contractorFields.phone.value.trim(),
     email: contractorFields.email.value.trim(),
     notes: contractorFields.notes.value.trim(),
   };
 
   if (!payload.name) {
-    throw new Error("Uzupelnij nazwe kontrahenta.");
+    throw new Error("Uzupelnij nazwe firmy.");
+  }
+  if (!payload.nip) {
+    throw new Error("Uzupelnij NIP.");
+  }
+  if (!payload.street) {
+    throw new Error("Uzupelnij ulice.");
+  }
+  if (!payload.postal_code) {
+    throw new Error("Uzupelnij kod pocztowy.");
+  }
+  if (!payload.city) {
+    throw new Error("Uzupelnij miejscowosc.");
+  }
+  if (!payload.phone) {
+    throw new Error("Uzupelnij telefon.");
+  }
+  if (!payload.email) {
+    throw new Error("Uzupelnij email.");
   }
 
   const { error } = await supabaseClient
