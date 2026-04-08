@@ -14,9 +14,11 @@ const receiveReturnButton = document.getElementById("receive-return");
 const selectedItemsBody = document.getElementById("selected-items-body");
 const selectedItemsEmpty = document.getElementById("selected-items-empty");
 const selectedItemRowTemplate = document.getElementById("selected-item-row-template");
+const selectedItemsActionsHeader = document.querySelector('[data-field="actionsHeader"]');
 const inventoryAddSearch = document.getElementById("inventory-add-search");
 const inventoryAddBody = document.getElementById("inventory-add-body");
 const inventoryAddRowTemplate = document.getElementById("inventory-add-row-template");
+const addItemsCard = document.querySelector(".add-items-card");
 
 const orderFields = {
   contractorName: document.getElementById("edit-contractor-name"),
@@ -362,6 +364,14 @@ function toggleOrderActions(order) {
   deleteOrderButton.disabled = !isSelected;
   saveOrderChangesButton.disabled = !isSelected || isReturned;
   receiveReturnButton.disabled = !isSelected || isReturned;
+  inventoryAddSearch.disabled = !isSelected || isReturned;
+
+  if (selectedItemsActionsHeader) {
+    selectedItemsActionsHeader.style.display = isReturned ? "none" : "";
+  }
+  if (addItemsCard) {
+    addItemsCard.style.display = isSelected && isReturned ? "none" : "";
+  }
 
   for (const field of Object.values(orderFields)) {
     field.disabled = !isSelected || field === orderFields.actualReturnDate;
@@ -430,6 +440,10 @@ function renderSelectedItems() {
     });
 
     const removeButton = row.querySelector('[data-action="remove-item"]');
+    const actionsCell = row.querySelector('[data-field="actionsCell"]');
+    if (actionsCell) {
+      actionsCell.style.display = isReturned ? "none" : "";
+    }
     removeButton.disabled = isReturned;
     removeButton.addEventListener("click", () => {
       selectedDraftItems = selectedDraftItems.filter((entry) => entry.deviceCode !== item.deviceCode);
