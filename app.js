@@ -1,4 +1,5 @@
-const STORAGE_KEY = "warehouse-items-v1";
+const TABLE_NAME = "warehouse_items";
+
 const DEPARTMENT_CATEGORIES = {
   Swiatlo: ["Lampy", "Reflektory", "Sterowanie", "Okablowanie"],
   Dzwiek: ["Miksery", "Mikrofony", "Kolumny", "Procesory"],
@@ -18,6 +19,7 @@ const csvMeta = document.getElementById("csv-meta");
 const csvMapping = document.getElementById("csv-mapping");
 const csvResult = document.getElementById("csv-result");
 const buildVersion = document.getElementById("build-version");
+const dataMode = document.getElementById("data-mode");
 
 const TARGET_FIELDS = [
   { key: "department", label: "Dział" },
@@ -39,40 +41,14 @@ const fields = {
   deviceCode: document.getElementById("deviceCode"),
 };
 
-let items = loadItems();
+const supabaseUrl = window.APP_CONFIG?.supabaseUrl || "";
+const supabaseAnonKey = window.APP_CONFIG?.supabaseAnonKey || "";
+const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKey);
+
+let items = [];
 let editingCode = null;
 let importRows = [];
 let importHeaders = [];
-
-function loadItems() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return parsed.map((item) => {
-      if (item.deviceCode && item.department && item.category) {
-        return {
-          ...item,
-          producer: item.producer || "Brak",
-        };
-      }
-      return {
-        department: "Swiatlo",
-        producer: item.producer || "Brak",
-        category: "Inne",
-        name: item.name || "",
-        weight: Number(item.weight ?? 0),
-        quantity: Number(item.quantity ?? 0),
-        deviceCode: item.deviceCode || item.sku || "",
-      };
-    });
-  } catch {
-    return [];
-  }
-}
-
-function saveItems() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -85,9 +61,9 @@ function normalizeDepartment(value) {
     .replace(/[^a-z]/g, "");
 
   if (normalized.includes("swiat")) return "Swiatlo";
-  if (normalized.includes("dzwiek") || normalized.includes("dzwiek")) return "Dzwiek";
+  if (normalized.includes("dzwiek")) return "Dzwiek";
   if (normalized.includes("scena")) return "Scena";
-  if (normalized.includes("kraty") || normalized.includes("kraty")) return "Kraty";
+  if (normalized.includes("kraty")) return "Kraty";
   return value;
 }
 
@@ -126,6 +102,84 @@ async function loadBuildVersion() {
     buildVersion.textContent = `Wersja: ${shortCommit} • ${deployedAt}`;
   } catch {
     buildVersion.textContent = "Wersja: lokalna";
+  }
+}
+
+function ensureSupabaseConfigured() {
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseClient) {
+    throw new Error("Brak konfiguracji Supabase w config.js");
+  }
+}
+
+function renderDataMode(status = "Dane: Supabase (cloud)") {
+  if (dataMode) {
+    dataMode.textContent = status;
+  }
+}
+
+function toDbRow(item) {
+  return {
+    device_code: item.deviceCode,
+    department: item.department,
+    producer: item.producer,
+    category: item.category,
+    name: item.name,
+    weight: item.weight,
+    quantity: item.quantity,
+  };
+}
+
+function fromDbRow(row) {
+  return {
+    department: row.department,
+    producer: row.producer,
+    category: row.category,
+    name: row.name,
+    weight: Number(row.weight),
+    quantity: Number(row.quantity),
+    deviceCode: row.device_code,
+  };
+}
+
+async function fetchItems() {
+  const { data, error } = await supabaseClient
+    .from(TABLE_NAME)
+    .select("device_code, department, producer, category, name, weight, quantity")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Błąd pobierania danych z chmury: ${error.message}`);
+  }
+
+  items = (data || []).map(fromDbRow);
+}
+
+async function saveOneItem(item) {
+  const { error } = await supabaseClient.from(TABLE_NAME).upsert(toDbRow(item), {
+    onConflict: "device_code",
+  });
+
+  if (error) {
+    throw new Error(`Błąd zapisu do chmury: ${error.message}`);
+  }
+}
+
+async function saveManyItems(newItems) {
+  if (!newItems.length) return;
+
+  const { error } = await supabaseClient.from(TABLE_NAME).upsert(newItems.map(toDbRow), {
+    onConflict: "device_code",
+  });
+
+  if (error) {
+    throw new Error(`Błąd importu do chmury: ${error.message}`);
+  }
+}
+
+async function deleteOneItem(deviceCode) {
+  const { error } = await supabaseClient.from(TABLE_NAME).delete().eq("device_code", deviceCode);
+  if (error) {
+    throw new Error(`Błąd usuwania z chmury: ${error.message}`);
   }
 }
 
@@ -198,15 +252,6 @@ function readFileText(file) {
     reader.onerror = () => reject(new Error("Nie udało się odczytać pliku CSV."));
     reader.readAsText(file, "utf-8");
   });
-}
-
-function upsertItem(newItem) {
-  const existingIndex = items.findIndex((item) => item.deviceCode === newItem.deviceCode);
-  if (existingIndex >= 0) {
-    items[existingIndex] = newItem;
-  } else {
-    items.push(newItem);
-  }
 }
 
 function renderCategoryOptions(selectedDepartment, selectedCategory = "") {
@@ -383,11 +428,16 @@ function renderRows() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    row.querySelector('[data-action="delete"]').addEventListener("click", () => {
+    row.querySelector('[data-action="delete"]').addEventListener("click", async () => {
       if (!confirm(`Usunąć ${item.name}?`)) return;
-      items = items.filter((entry) => entry.deviceCode !== item.deviceCode);
-      saveItems();
-      renderRows();
+
+      try {
+        await deleteOneItem(item.deviceCode);
+        await fetchItems();
+        renderRows();
+      } catch (error) {
+        alert(error.message);
+      }
     });
 
     itemsBody.appendChild(row);
@@ -396,7 +446,7 @@ function renderRows() {
   renderStats(filtered);
 }
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const payload = {
@@ -431,10 +481,14 @@ form.addEventListener("submit", (event) => {
     payload.deviceCode = editingCode;
   }
 
-  upsertItem(payload);
-  saveItems();
-  renderRows();
-  resetForm();
+  try {
+    await saveOneItem(payload);
+    await fetchItems();
+    renderRows();
+    resetForm();
+  } catch (error) {
+    alert(error.message);
+  }
 });
 
 searchInput.addEventListener("input", renderRows);
@@ -478,7 +532,7 @@ prepareImportButton.addEventListener("click", async () => {
   }
 });
 
-runImportButton.addEventListener("click", () => {
+runImportButton.addEventListener("click", async () => {
   csvResult.textContent = "";
   csvResult.className = "csv-result";
 
@@ -501,11 +555,8 @@ runImportButton.addEventListener("click", () => {
       imported.push(buildItemFromCsv(mappedRow, index + 2));
     }
 
-    for (const item of imported) {
-      upsertItem(item);
-    }
-
-    saveItems();
+    await saveManyItems(imported);
+    await fetchItems();
     renderRows();
     csvResult.textContent = `Zaimportowano ${imported.length} pozycji.`;
     csvResult.classList.add("success");
@@ -515,6 +566,19 @@ runImportButton.addEventListener("click", () => {
   }
 });
 
-renderCategoryOptions(fields.department.value);
-renderRows();
-loadBuildVersion();
+async function init() {
+  renderCategoryOptions(fields.department.value);
+  loadBuildVersion();
+
+  try {
+    ensureSupabaseConfigured();
+    renderDataMode();
+    await fetchItems();
+    renderRows();
+  } catch (error) {
+    renderDataMode("Dane: błąd konfiguracji Supabase");
+    alert(error.message);
+  }
+}
+
+init();

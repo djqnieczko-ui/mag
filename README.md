@@ -7,9 +7,7 @@ Lekka aplikacja do zarządzania stanami magazynowymi (HTML/CSS/JS), gotowa do pu
 - Dodawanie, edycja i usuwanie pozycji
 - Import CSV z mapowaniem naglowkow
 - Wyszukiwanie po wielu polach
-- Tryb danych:
-   - `localStorage` (domyslny)
-   - Supabase (darmowa chmura)
+- Dane przechowywane w Supabase (darmowa chmura)
 
 ## Konfiguracja Supabase (Free)
 1. Zaloz projekt w Supabase.
@@ -28,9 +26,6 @@ window.APP_CONFIG = {
 
 5. Wypchnij zmiany na GitHub.
 6. Po wdrozeniu strona pokaze w naglowku tryb: `Dane: Supabase (cloud)`.
-
-## Migracja danych
-- Przy pierwszym uruchomieniu w trybie chmurowym aplikacja automatycznie przenosi dane z `localStorage` do Supabase (jesli tabela w chmurze jest pusta).
 
 ## Publikacja online (GitHub Pages)
 1. W repozytorium GitHub przejdz do `Settings > Pages`.
