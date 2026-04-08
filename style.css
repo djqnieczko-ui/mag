@@ -132,6 +132,21 @@ body {
   max-width: 1280px;
 }
 
+.rental-admin-layout {
+  max-width: 1400px;
+  grid-template-columns: minmax(360px, 0.92fr) minmax(0, 1.4fr);
+  align-items: start;
+}
+
+.orders-card {
+  grid-row: span 2;
+}
+
+.selected-order-card,
+.add-items-card {
+  min-width: 0;
+}
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -151,6 +166,14 @@ body {
 
 .grid-span-2 {
   grid-column: span 2;
+}
+
+.order-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 h2 {
@@ -316,6 +339,33 @@ select:focus {
   min-width: 150px;
 }
 
+.detail-summary {
+  margin: 14px 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.detail-chip {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid var(--border);
+}
+
+.detail-chip span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.detail-chip strong {
+  display: block;
+  margin-top: 4px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem;
+}
+
 .stats {
   margin: 14px 0;
   display: grid;
@@ -363,6 +413,60 @@ th {
   font-weight: 700;
 }
 
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-neutral {
+  background: rgba(30, 41, 59, 0.8);
+  color: #dbe8f7;
+}
+
+.status-ok {
+  background: rgba(8, 145, 178, 0.2);
+  color: #7dd3fc;
+}
+
+.status-today {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+.status-overdue {
+  background: rgba(220, 38, 38, 0.18);
+  color: #fca5a5;
+}
+
+.status-returned {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+.row-selected td {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.row-today td {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.row-overdue td {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.row-returned td {
+  background: rgba(34, 197, 94, 0.06);
+}
+
 @media (max-width: 768px) {
   body {
     padding: 12px;
@@ -374,6 +478,14 @@ th {
 
   .topbar-row {
     align-items: stretch;
+  }
+
+  .rental-admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .orders-card {
+    grid-row: auto;
   }
 
   table {
