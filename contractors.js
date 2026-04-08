@@ -267,10 +267,7 @@ function renderContractorsTable() {
     row.querySelector('[data-field="city"]').textContent = rowData.city || "-";
     row.querySelector('[data-field="phone"]').textContent = rowData.phone || "-";
     row.querySelector('[data-field="email"]').textContent = rowData.email || "-";
-    row.querySelector('[data-field="allCount"]').textContent = rowData.allCount;
-    row.querySelector('[data-field="returnedCount"]').textContent = rowData.returnedCount;
-    row.querySelector('[data-field="inProgressCount"]').textContent = rowData.inProgressCount;
-    row.querySelector('[data-field="overdueCount"]').textContent = rowData.overdueCount;
+    row.querySelector('[data-field="wzSummary"]').textContent = `${rowData.allCount}/${rowData.returnedCount}/${rowData.inProgressCount}/${rowData.overdueCount}`;
     contractorsBody.appendChild(row);
   }
 
