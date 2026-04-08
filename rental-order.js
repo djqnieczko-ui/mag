@@ -38,6 +38,7 @@ let inventoryItems = [];
 let rentalOrders = [];
 let selectedOrderId = null;
 let selectedDraftItems = [];
+let returnDraftQuantities = new Map();
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
@@ -283,6 +284,13 @@ function buildDraftFromOrder(order) {
   selectedDraftItems = order.items.map((item) => ({ ...item }));
 }
 
+function buildReturnDraftFromOrder(order) {
+  returnDraftQuantities = new Map();
+  for (const item of order.items) {
+    returnDraftQuantities.set(item.id, item.quantity);
+  }
+}
+
 function setOrderResult(message = "", tone = "") {
   orderResult.textContent = message;
   orderResult.className = "csv-result";
@@ -368,29 +376,26 @@ function renderSelectedItems() {
     });
 
     const partialReturnQuantityInput = row.querySelector('[data-field="partialReturnQuantity"]');
-    partialReturnQuantityInput.max = String(item.quantity);
+    const savedOrderItem = order?.items.find((entry) => entry.id === item.id) || null;
+    const returnLimit = Number(savedOrderItem?.quantity ?? item.quantity);
+    const currentReturnDraft = Number(returnDraftQuantities.get(item.id));
+    const safeReturnDraft = Number.isInteger(currentReturnDraft)
+      ? Math.min(Math.max(currentReturnDraft, 0), returnLimit)
+      : returnLimit;
+    partialReturnQuantityInput.value = String(safeReturnDraft);
+    partialReturnQuantityInput.max = String(returnLimit);
     partialReturnQuantityInput.disabled = isReturned || !item.id;
 
-    const partialReturnButton = row.querySelector('[data-action="partial-return"]');
-    partialReturnButton.disabled = isReturned || !item.id;
-    partialReturnButton.addEventListener("click", async () => {
-      if (!order || isReturned) {
+    partialReturnQuantityInput.addEventListener("input", () => {
+      const nextValue = Number(partialReturnQuantityInput.value);
+      if (!Number.isInteger(nextValue) || nextValue < 0) {
+        partialReturnQuantityInput.value = String(safeReturnDraft);
         return;
       }
-
-      const returnQuantity = Number(partialReturnQuantityInput.value);
-      if (!Number.isInteger(returnQuantity) || returnQuantity < 1) {
-        setOrderResult("Podaj poprawna ilosc do zwrotu czesciowego.", "error");
-        return;
-      }
-
-      setOrderResult();
-      try {
-        await receivePartialReturn(item.id, returnQuantity);
-        await refreshData();
-        setOrderResult("Przyjeto zwrot czesciowy i zaktualizowano stan magazynu.", "success");
-      } catch (error) {
-        setOrderResult(error.message, "error");
+      const clampedValue = Math.min(nextValue, returnLimit);
+      partialReturnQuantityInput.value = String(clampedValue);
+      if (item.id) {
+        returnDraftQuantities.set(item.id, clampedValue);
       }
     });
 
@@ -471,6 +476,7 @@ function selectOrder(orderId) {
   const order = rentalOrders.find((entry) => entry.id === orderId) || null;
   selectedOrderId = order?.id || null;
   buildDraftFromOrder(order || { items: [] });
+  buildReturnDraftFromOrder(order || { items: [] });
   fillSelectedOrderForm(order);
   renderSelectedOrderHeader(order);
   renderSelectedItems();
@@ -724,185 +730,123 @@ async function receiveReturn() {
     }
   }
 
+  const returnPlan = order.items.map((item) => {
+    const requestedQuantity = Number(returnDraftQuantities.get(item.id));
+    const safeRequested = Number.isInteger(requestedQuantity)
+      ? requestedQuantity
+      : item.quantity;
+
+    if (safeRequested < 0 || safeRequested > item.quantity) {
+      throw new Error(`Niepoprawna ilosc zwrotu dla ${item.name}.`);
+    }
+
+    return {
+      ...item,
+      returnQuantity: safeRequested,
+      remainingQuantity: item.quantity - safeRequested,
+    };
+  });
+
+  const returnedNow = returnPlan.reduce((sum, item) => sum + item.returnQuantity, 0);
+  if (returnedNow < 1) {
+    throw new Error("Podaj co najmniej jedna sztuke do zwrotu.");
+  }
+
+  const remainingAfter = returnPlan.reduce((sum, item) => sum + item.remainingQuantity, 0);
+
   await fetchInventory();
-  for (const item of order.items) {
+
+  const adjustments = [];
+  for (const item of returnPlan) {
+    if (item.returnQuantity < 1) continue;
     const inventoryItem = getInventoryItem(item.deviceCode);
     if (!inventoryItem) {
       throw new Error(`Brak pozycji magazynowej dla ${item.deviceCode}.`);
     }
-    const nextCurrentQuantity = Math.min(
-      inventoryItem.totalQuantity,
-      inventoryItem.currentQuantity + item.quantity
-    );
-    const payload = hasSplitStockColumns
-      ? { current_quantity: nextCurrentQuantity, quantity: nextCurrentQuantity }
-      : { quantity: nextCurrentQuantity };
-
-    const { error } = await supabaseClient
-      .from(TABLE_NAME)
-      .update(payload)
-      .eq("device_code", item.deviceCode);
-    if (error) {
-      throw new Error(`Blad przyjmowania zwrotu dla ${item.deviceCode}: ${error.message}`);
-    }
+    adjustments.push({
+      deviceCode: item.deviceCode,
+      previousCurrentQuantity: inventoryItem.currentQuantity,
+      nextCurrentQuantity: Math.min(
+        inventoryItem.totalQuantity,
+        inventoryItem.currentQuantity + item.returnQuantity
+      ),
+    });
   }
 
-  const today = new Date();
-  const isoDate = today.toISOString().slice(0, 10);
-  const orderUpdatePayload = hasRentalMetricsColumns
-    ? {
-        actual_return_date: isoDate,
-        returned_quantity: Number(order.borrowedTotalQuantity || 0),
-      }
-    : { actual_return_date: isoDate };
-
-  const { error: orderError } = await supabaseClient
-    .from(RENTAL_ORDERS_TABLE)
-    .update(orderUpdatePayload)
-    .eq("id", order.id);
-
-  if (orderError) {
-    throw new Error(`Blad oznaczania zwrotu: ${orderError.message}`);
-  }
-}
-
-async function receivePartialReturn(orderItemId, returnQuantity) {
-  const order = getSelectedOrder();
-  if (!order) {
-    throw new Error("Wybierz listę wynajmu.");
-  }
-  if (order.actualReturnDate) {
-    throw new Error("Ten dokument ma juz przyjety zwrot.");
-  }
-
-  const hasUnsavedChanges =
-    selectedDraftItems.length !== order.items.length ||
-    selectedDraftItems.some(
-      (item) => (getOriginalQuantityMap(order).get(item.deviceCode) || 0) !== item.quantity
-    ) ||
-    orderFields.contractorName.value.trim() !== order.contractorName ||
-    orderFields.contractorContact.value.trim() !== order.contractorContact ||
-    orderFields.contractorPhone.value.trim() !== order.contractorPhone ||
-    orderFields.contractorEmail.value.trim() !== order.contractorEmail ||
-    (orderFields.declaredReturnDate.value || "") !== (order.declaredReturnDate || "") ||
-    orderFields.notes.value.trim() !== order.notes;
-
-  if (hasUnsavedChanges) {
-    const proceed = confirm("Masz niezapisane zmiany w WZ. Zwrot czesciowy zostanie przyjety na podstawie zapisanej wersji dokumentu. Kontynuowac?");
-    if (!proceed) {
-      return;
-    }
-  }
-
-  const orderItem = order.items.find((item) => item.id === orderItemId);
-  if (!orderItem) {
-    throw new Error("Nie znaleziono pozycji w dokumencie WZ.");
-  }
-  if (!Number.isInteger(returnQuantity) || returnQuantity < 1) {
-    throw new Error("Podaj poprawna ilosc do zwrotu czesciowego.");
-  }
-  if (returnQuantity > orderItem.quantity) {
-    throw new Error(`Maksymalna ilosc do zwrotu: ${orderItem.quantity}.`);
-  }
-
-  await fetchInventory();
-  const inventoryItem = getInventoryItem(orderItem.deviceCode);
-  if (!inventoryItem) {
-    throw new Error(`Brak pozycji magazynowej dla ${orderItem.deviceCode}.`);
-  }
-
-  const previousCurrentQuantity = inventoryItem.currentQuantity;
-  const nextCurrentQuantity = Math.min(
-    inventoryItem.totalQuantity,
-    inventoryItem.currentQuantity + returnQuantity
-  );
-
-  await applyInventoryAdjustment({
-    deviceCode: orderItem.deviceCode,
-    previousCurrentQuantity,
-    nextCurrentQuantity,
-  });
-
-  const nextReturnedQuantity = hasRentalMetricsColumns
-    ? Math.min(
-        Number(order.borrowedTotalQuantity || 0),
-        Number(order.returnedQuantity || 0) + returnQuantity
-      )
-    : null;
-
-  const previousReturnedQuantity = Number(order.returnedQuantity || 0);
+  const appliedAdjustments = [];
+  let itemsDeleted = false;
 
   try {
-    const remainingQuantity = orderItem.quantity - returnQuantity;
-    if (remainingQuantity > 0) {
-      const { error: updateItemError } = await supabaseClient
+    for (const adjustment of adjustments) {
+      await applyInventoryAdjustment(adjustment);
+      appliedAdjustments.push(adjustment);
+    }
+
+    const { error: deleteError } = await supabaseClient
+      .from(RENTAL_ITEMS_TABLE)
+      .delete()
+      .eq("order_id", order.id);
+    if (deleteError) {
+      throw new Error(`Blad aktualizacji pozycji zwrotu: ${deleteError.message}`);
+    }
+    itemsDeleted = true;
+
+    const remainingItemsPayload = returnPlan
+      .filter((item) => item.remainingQuantity > 0)
+      .map((item) => ({
+        order_id: order.id,
+        device_code: item.deviceCode,
+        department: item.department,
+        category: item.category,
+        producer: item.producer,
+        name: item.name,
+        quantity: item.remainingQuantity,
+      }));
+
+    if (remainingItemsPayload.length) {
+      const { error: insertError } = await supabaseClient
         .from(RENTAL_ITEMS_TABLE)
-        .update({ quantity: remainingQuantity })
-        .eq("id", orderItem.id);
-      if (updateItemError) {
-        throw new Error(`Blad aktualizacji pozycji WZ: ${updateItemError.message}`);
-      }
-    } else {
-      const { error: deleteItemError } = await supabaseClient
-        .from(RENTAL_ITEMS_TABLE)
-        .delete()
-        .eq("id", orderItem.id);
-      if (deleteItemError) {
-        throw new Error(`Blad usuwania pozycji WZ: ${deleteItemError.message}`);
+        .insert(remainingItemsPayload);
+      if (insertError) {
+        throw new Error(`Blad zapisu pozostalych pozycji WZ: ${insertError.message}`);
       }
     }
 
-    const shouldCloseOrder = order.items.length === 1 && remainingQuantity === 0;
+    const nextReturnedQuantity = hasRentalMetricsColumns
+      ? Math.min(
+          Number(order.borrowedTotalQuantity || 0),
+          Number(order.returnedQuantity || 0) + returnedNow
+        )
+      : null;
+
     const orderPayload = {};
     if (hasRentalMetricsColumns) {
       orderPayload.returned_quantity = nextReturnedQuantity;
     }
-    if (shouldCloseOrder) {
-      orderPayload.actual_return_date = new Date().toISOString().slice(0, 10);
+    orderPayload.actual_return_date = remainingAfter === 0
+      ? new Date().toISOString().slice(0, 10)
+      : null;
+
+    const { error: orderError } = await supabaseClient
+      .from(RENTAL_ORDERS_TABLE)
+      .update(orderPayload)
+      .eq("id", order.id);
+    if (orderError) {
+      throw new Error(`Blad oznaczania zwrotu: ${orderError.message}`);
     }
-    if (Object.keys(orderPayload).length) {
-      const { error: updateOrderError } = await supabaseClient
-        .from(RENTAL_ORDERS_TABLE)
-        .update(orderPayload)
-        .eq("id", order.id);
-      if (updateOrderError) {
-        throw new Error(`Blad aktualizacji dokumentu WZ: ${updateOrderError.message}`);
+
+    return remainingAfter === 0 ? "full" : "partial";
+  } catch (error) {
+    if (itemsDeleted) {
+      await supabaseClient.from(RENTAL_ITEMS_TABLE).delete().eq("order_id", order.id);
+      const originalPayload = buildOriginalInsertPayload(order);
+      if (originalPayload.length) {
+        await supabaseClient.from(RENTAL_ITEMS_TABLE).insert(originalPayload);
       }
     }
-  } catch (error) {
-    const restoreItemQuantity = orderItem.quantity;
-    if (restoreItemQuantity > 0) {
-      await supabaseClient
-        .from(RENTAL_ITEMS_TABLE)
-        .upsert(
-          {
-            id: orderItem.id,
-            order_id: order.id,
-            device_code: orderItem.deviceCode,
-            department: orderItem.department,
-            category: orderItem.category,
-            producer: orderItem.producer,
-            name: orderItem.name,
-            quantity: restoreItemQuantity,
-          },
-          { onConflict: "id" }
-        );
+    if (appliedAdjustments.length) {
+      await rollbackInventoryAdjustments(appliedAdjustments);
     }
-
-    if (hasRentalMetricsColumns) {
-      await supabaseClient
-        .from(RENTAL_ORDERS_TABLE)
-        .update({ returned_quantity: previousReturnedQuantity })
-        .eq("id", order.id);
-    }
-
-    await rollbackInventoryAdjustments([
-      {
-        deviceCode: orderItem.deviceCode,
-        previousCurrentQuantity,
-        nextCurrentQuantity,
-      },
-    ]);
     throw error;
   }
 }
@@ -1027,9 +971,14 @@ deleteOrderButton.addEventListener("click", async () => {
 receiveReturnButton.addEventListener("click", async () => {
   setOrderResult();
   try {
-    await receiveReturn();
+    const returnType = await receiveReturn();
     await refreshData();
-    setOrderResult("Przyjeto zwrot i zaktualizowano stan magazynu.", "success");
+    setOrderResult(
+      returnType === "full"
+        ? "Przyjeto pelny zwrot i zaktualizowano stan magazynu."
+        : "Przyjeto czesciowy zwrot i zaktualizowano stan magazynu.",
+      "success"
+    );
   } catch (error) {
     setOrderResult(error.message, "error");
   }

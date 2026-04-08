@@ -465,8 +465,8 @@ th {
 }
 
 .status-partial {
-  background: rgba(249, 115, 22, 0.2);
-  color: #fdba74;
+  background: rgba(217, 70, 239, 0.2);
+  color: #f5a8ff;
 }
 
 .back-link {
@@ -502,7 +502,7 @@ th {
 }
 
 .row-partial td {
-  background: rgba(249, 115, 22, 0.08);
+  background: rgba(217, 70, 239, 0.12);
 }
 
 @media (max-width: 768px) {
