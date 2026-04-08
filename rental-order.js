@@ -229,7 +229,7 @@ function getOrderStatus(order) {
 
   if (order.returnedQuantity > 0 && order.outstandingQuantity > 0) {
     return {
-      label: "Czesciowy zwrot",
+      label: `Czesciowy zwrot (${order.returnedQuantity}/${order.borrowedTotalQuantity})`,
       tone: "partial",
       days: null,
     };
