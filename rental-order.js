@@ -317,6 +317,33 @@ function renderSelectedItems() {
       renderInventoryAddList();
     });
 
+    const partialReturnQuantityInput = row.querySelector('[data-field="partialReturnQuantity"]');
+    partialReturnQuantityInput.max = String(item.quantity);
+    partialReturnQuantityInput.disabled = isReturned || !item.id;
+
+    const partialReturnButton = row.querySelector('[data-action="partial-return"]');
+    partialReturnButton.disabled = isReturned || !item.id;
+    partialReturnButton.addEventListener("click", async () => {
+      if (!order || isReturned) {
+        return;
+      }
+
+      const returnQuantity = Number(partialReturnQuantityInput.value);
+      if (!Number.isInteger(returnQuantity) || returnQuantity < 1) {
+        setOrderResult("Podaj poprawna ilosc do zwrotu czesciowego.", "error");
+        return;
+      }
+
+      setOrderResult();
+      try {
+        await receivePartialReturn(item.id, returnQuantity);
+        await refreshData();
+        setOrderResult("Przyjeto zwrot czesciowy i zaktualizowano stan magazynu.", "success");
+      } catch (error) {
+        setOrderResult(error.message, "error");
+      }
+    });
+
     const removeButton = row.querySelector('[data-action="remove-item"]');
     removeButton.disabled = isReturned;
     removeButton.addEventListener("click", () => {
@@ -666,6 +693,106 @@ async function receiveReturn() {
 
   if (orderError) {
     throw new Error(`Blad oznaczania zwrotu: ${orderError.message}`);
+  }
+}
+
+async function receivePartialReturn(orderItemId, returnQuantity) {
+  const order = getSelectedOrder();
+  if (!order) {
+    throw new Error("Wybierz listę wynajmu.");
+  }
+  if (order.actualReturnDate) {
+    throw new Error("Ten dokument ma juz przyjety zwrot.");
+  }
+
+  const hasUnsavedChanges =
+    selectedDraftItems.length !== order.items.length ||
+    selectedDraftItems.some(
+      (item) => (getOriginalQuantityMap(order).get(item.deviceCode) || 0) !== item.quantity
+    ) ||
+    orderFields.contractorName.value.trim() !== order.contractorName ||
+    orderFields.contractorContact.value.trim() !== order.contractorContact ||
+    orderFields.contractorPhone.value.trim() !== order.contractorPhone ||
+    orderFields.contractorEmail.value.trim() !== order.contractorEmail ||
+    (orderFields.declaredReturnDate.value || "") !== (order.declaredReturnDate || "") ||
+    orderFields.notes.value.trim() !== order.notes;
+
+  if (hasUnsavedChanges) {
+    const proceed = confirm("Masz niezapisane zmiany w WZ. Zwrot czesciowy zostanie przyjety na podstawie zapisanej wersji dokumentu. Kontynuowac?");
+    if (!proceed) {
+      return;
+    }
+  }
+
+  const orderItem = order.items.find((item) => item.id === orderItemId);
+  if (!orderItem) {
+    throw new Error("Nie znaleziono pozycji w dokumencie WZ.");
+  }
+  if (!Number.isInteger(returnQuantity) || returnQuantity < 1) {
+    throw new Error("Podaj poprawna ilosc do zwrotu czesciowego.");
+  }
+  if (returnQuantity > orderItem.quantity) {
+    throw new Error(`Maksymalna ilosc do zwrotu: ${orderItem.quantity}.`);
+  }
+
+  await fetchInventory();
+  const inventoryItem = getInventoryItem(orderItem.deviceCode);
+  if (!inventoryItem) {
+    throw new Error(`Brak pozycji magazynowej dla ${orderItem.deviceCode}.`);
+  }
+
+  const previousCurrentQuantity = inventoryItem.currentQuantity;
+  const nextCurrentQuantity = Math.min(
+    inventoryItem.totalQuantity,
+    inventoryItem.currentQuantity + returnQuantity
+  );
+
+  await applyInventoryAdjustment({
+    deviceCode: orderItem.deviceCode,
+    previousCurrentQuantity,
+    nextCurrentQuantity,
+  });
+
+  try {
+    const remainingQuantity = orderItem.quantity - returnQuantity;
+    if (remainingQuantity > 0) {
+      const { error: updateItemError } = await supabaseClient
+        .from(RENTAL_ITEMS_TABLE)
+        .update({ quantity: remainingQuantity })
+        .eq("id", orderItem.id);
+      if (updateItemError) {
+        throw new Error(`Blad aktualizacji pozycji WZ: ${updateItemError.message}`);
+      }
+    } else {
+      const { error: deleteItemError } = await supabaseClient
+        .from(RENTAL_ITEMS_TABLE)
+        .delete()
+        .eq("id", orderItem.id);
+      if (deleteItemError) {
+        throw new Error(`Blad usuwania pozycji WZ: ${deleteItemError.message}`);
+      }
+    }
+
+    const shouldCloseOrder = order.items.length === 1 && remainingQuantity === 0;
+    if (shouldCloseOrder) {
+      const isoDate = new Date().toISOString().slice(0, 10);
+      const { error: closeOrderError } = await supabaseClient
+        .from(RENTAL_ORDERS_TABLE)
+        .update({ actual_return_date: isoDate })
+        .eq("id", order.id);
+      if (closeOrderError) {
+        throw new Error(`Blad oznaczania dokumentu jako zwrocony: ${closeOrderError.message}`);
+      }
+    }
+  } catch (error) {
+    await rollbackInventoryAdjustments([
+      {
+        deviceCode: orderItem.deviceCode,
+        previousCurrentQuantity,
+        nextCurrentQuantity,
+      },
+    ]);
+    throw error;
   }
 }
 
