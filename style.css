@@ -58,6 +58,45 @@ body {
   margin: 0 auto 16px;
 }
 
+.topbar-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.topbar-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.72);
+  color: #dce8f7;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.nav-tab-active {
+  background: linear-gradient(140deg, var(--accent), #2563eb);
+  color: #03111f;
+}
+
 .topbar h1 {
   margin: 0;
   font-family: "Space Grotesk", sans-serif;
@@ -307,6 +346,10 @@ th {
 
   .card {
     padding: 14px;
+  }
+
+  .topbar-row {
+    align-items: stretch;
   }
 
   table {

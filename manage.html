@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Zarzadzanie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Zarzadzanie stanem i import CSV</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab nav-tab-active">Zarzadzanie</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card import-card">
+      <h2>Import CSV</h2>
+      <p class="muted">1) Wybierz plik CSV. 2) Przypisz naglowki CSV do pol magazynu. 3) Zaimportuj pozycje.</p>
+      <div class="import-controls">
+        <input type="file" id="csv-file" accept=".csv,text/csv" />
+        <button type="button" class="btn btn-light" id="prepare-import">Przygotuj mapowanie</button>
+        <button type="button" class="btn btn-primary" id="run-import" disabled>Importuj CSV</button>
+      </div>
+      <div id="csv-meta" class="csv-meta"></div>
+      <div id="csv-mapping" class="csv-mapping"></div>
+      <div id="csv-result" class="csv-result"></div>
+    </section>
+
+    <section class="card form-card">
+      <h2>Dodaj lub zaktualizuj produkt</h2>
+      <form id="item-form">
+        <div class="grid">
+          <label>
+            Dzial
+            <select id="department" required>
+              <option value="">Wybierz dzial</option>
+              <option value="Swiatlo">Swiatlo</option>
+              <option value="Dzwiek">Dzwiek</option>
+              <option value="Scena">Scena</option>
+              <option value="Kraty">Kraty</option>
+            </select>
+          </label>
+          <label>
+            Kategoria
+            <select id="category" required>
+              <option value="">Najpierw wybierz dzial</option>
+            </select>
+          </label>
+          <label>
+            Producent
+            <input type="text" id="producer" required placeholder="np. Yamaha" />
+          </label>
+          <label>
+            Nazwa
+            <input type="text" id="name" required placeholder="np. Reflektor LED 200W" />
+          </label>
+          <label>
+            Waga (kg)
+            <input type="number" id="weight" min="0" step="0.01" required placeholder="np. 7.5" />
+          </label>
+          <label>
+            Ilosc
+            <input type="number" id="quantity" min="0" required placeholder="0" />
+          </label>
+          <label>
+            Kod urzadzenia
+            <input type="text" id="deviceCode" required placeholder="np. SW-LED-001" />
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Zapisz pozycje</button>
+      </form>
+    </section>
+
+    <section class="card list-card">
+      <div class="list-header">
+        <h2>Lista pozycji</h2>
+        <input id="search" type="search" placeholder="Szukaj: dzial, kategoria, producent, nazwa, kod" />
+      </div>
+
+      <div class="filter-bar">
+        <label>
+          Filtr dzial
+          <select id="filter-department">
+            <option value="">Wszystkie dzialy</option>
+          </select>
+        </label>
+        <label>
+          Filtr kategoria
+          <select id="filter-category">
+            <option value="">Wszystkie kategorie</option>
+          </select>
+        </label>
+        <label>
+          Filtr producent
+          <select id="filter-producer">
+            <option value="">Wszyscy producenci</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dzial</th>
+              <th>Kategoria</th>
+              <th>Producent</th>
+              <th>Nazwa</th>
+              <th>Waga (kg)</th>
+              <th>Ilosc</th>
+              <th>Kod urzadzenia</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="items-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <template id="row-template">
+    <tr>
+      <td data-field="department"></td>
+      <td data-field="category"></td>
+      <td data-field="producer"></td>
+      <td data-field="name"></td>
+      <td data-field="weight"></td>
+      <td data-field="quantity"></td>
+      <td data-field="deviceCode"></td>
+      <td>
+        <button class="btn btn-light" data-action="edit">Edytuj</button>
+        <button class="btn btn-danger" data-action="delete">Usun</button>
+      </td>
+    </tr>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

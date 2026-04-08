@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Magazyn - Panel</title>
+  <title>Magazyn - Stan Magazynu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
@@ -14,70 +14,23 @@
   <div class="ambient ambient-b"></div>
 
   <header class="topbar">
-    <h1>Magazyn</h1>
-    <p>Prosty panel stanów magazynowych</p>
-    <div id="build-version" class="build-version">Wersja: lokalna</div>
-    <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Aktualny stan magazynu</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab nav-tab-active">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab">Zarządzanie</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    </div>
   </header>
 
   <main class="layout">
-    <section class="card import-card">
-      <h2>Import CSV</h2>
-      <p class="muted">1) Wybierz plik CSV. 2) Przypisz nagłówki CSV do pól magazynu. 3) Zaimportuj pozycje.</p>
-      <div class="import-controls">
-        <input type="file" id="csv-file" accept=".csv,text/csv" />
-        <button type="button" class="btn btn-light" id="prepare-import">Przygotuj mapowanie</button>
-        <button type="button" class="btn btn-primary" id="run-import" disabled>Importuj CSV</button>
-      </div>
-      <div id="csv-meta" class="csv-meta"></div>
-      <div id="csv-mapping" class="csv-mapping"></div>
-      <div id="csv-result" class="csv-result"></div>
-    </section>
-
-    <section class="card form-card">
-      <h2>Dodaj lub zaktualizuj produkt</h2>
-      <form id="item-form">
-        <div class="grid">
-          <label>
-            Dział
-            <select id="department" required>
-              <option value="">Wybierz dział</option>
-              <option value="Swiatlo">Swiatlo</option>
-              <option value="Dzwiek">Dzwiek</option>
-              <option value="Scena">Scena</option>
-              <option value="Kraty">Kraty</option>
-            </select>
-          </label>
-          <label>
-            Kategoria
-            <select id="category" required>
-              <option value="">Najpierw wybierz dział</option>
-            </select>
-          </label>
-          <label>
-            Producent
-            <input type="text" id="producer" required placeholder="np. Yamaha" />
-          </label>
-          <label>
-            Nazwa
-            <input type="text" id="name" required placeholder="np. Reflektor LED 200W" />
-          </label>
-          <label>
-            Waga (kg)
-            <input type="number" id="weight" min="0" step="0.01" required placeholder="np. 7.5" />
-          </label>
-          <label>
-            Ilość
-            <input type="number" id="quantity" min="0" required placeholder="0" />
-          </label>
-          <label>
-            Kod urządzenia
-            <input type="text" id="deviceCode" required placeholder="np. SW-LED-001" />
-          </label>
-        </div>
-        <button type="submit" class="btn btn-primary">Zapisz pozycję</button>
-      </form>
-    </section>
 
     <section class="card list-card">
       <div class="list-header">
@@ -119,7 +72,6 @@
               <th>Waga (kg)</th>
               <th>Ilość</th>
               <th>Kod urządzenia</th>
-              <th>Akcje</th>
             </tr>
           </thead>
           <tbody id="items-body"></tbody>
@@ -137,15 +89,11 @@
       <td data-field="weight"></td>
       <td data-field="quantity"></td>
       <td data-field="deviceCode"></td>
-      <td>
-        <button class="btn btn-light" data-action="edit">Edytuj</button>
-        <button class="btn btn-danger" data-action="delete">Usuń</button>
-      </td>
     </tr>
   </template>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="view.js"></script>
 </body>
 </html>
