@@ -523,6 +523,16 @@ function toggleOrderActions(order) {
   const isSelected = Boolean(order);
   const isReturned = Boolean(order?.actualReturnDate);
   const isSettled = Boolean(order?.settledAt);
+  const contractorReadonlyFields = new Set([
+    orderFields.contractorName,
+    orderFields.contractorNip,
+    orderFields.contractorStreet,
+    orderFields.contractorPostalCode,
+    orderFields.contractorCity,
+    orderFields.contractorPhone,
+    orderFields.contractorEmail,
+    orderFields.actualReturnDate,
+  ]);
   deleteOrderButton.disabled = !isSelected;
   saveOrderChangesButton.disabled = !isSelected || isReturned || isSettled;
   receiveReturnButton.disabled = !isSelected || isSettled;
@@ -537,9 +547,11 @@ function toggleOrderActions(order) {
   }
 
   for (const field of Object.values(orderFields)) {
-    field.disabled = !isSelected || field === orderFields.actualReturnDate;
+    field.disabled = contractorReadonlyFields.has(field) || !isSelected || isReturned || isSettled;
   }
   orderFields.actualReturnDate.disabled = true;
+  orderFields.declaredReturnDate.disabled = !isSelected || isReturned || isSettled;
+  orderFields.notes.disabled = !isSelected || isReturned || isSettled;
 }
 
 function renderSelectedItems() {
