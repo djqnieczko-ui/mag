@@ -49,6 +49,7 @@ create policy "anon_write_items"
 
 create table if not exists public.rental_orders (
   id uuid primary key default gen_random_uuid(),
+  contractor_id uuid,
   contractor_name text not null,
   contractor_contact text,
   contractor_phone text,
@@ -67,6 +68,7 @@ alter table public.rental_orders add column if not exists actual_return_date dat
 alter table public.rental_orders add column if not exists settled_at timestamptz;
 alter table public.rental_orders add column if not exists borrowed_total_quantity integer;
 alter table public.rental_orders add column if not exists returned_quantity integer;
+alter table public.rental_orders add column if not exists contractor_id uuid;
 
 create table if not exists public.rental_order_items (
   id bigserial primary key,
@@ -177,6 +179,26 @@ alter table public.contractors alter column city set default '';
 alter table public.contractors alter column phone set default '';
 alter table public.contractors alter column email set default '';
 alter table public.contractors alter column created_at set default now();
+
+update public.rental_orders as ro
+set contractor_id = c.id
+from public.contractors as c
+where ro.contractor_id is null
+  and lower(coalesce(ro.contractor_name, '')) = lower(c.name);
+
+do $$
+begin
+  alter table public.rental_orders
+    add constraint rental_orders_contractor_id_fkey
+    foreign key (contractor_id)
+    references public.contractors(id)
+    on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
+
+create index if not exists rental_orders_contractor_id_idx
+  on public.rental_orders (contractor_id);
 
 create unique index if not exists contractors_name_unique_idx
   on public.contractors (lower(name));

@@ -38,6 +38,7 @@ let hasSplitStockColumns = true;
 let hasRentalMetricsColumns = true;
 let hasRentalItemReturnColumns = true;
 let hasContractorsTable = true;
+let hasContractorIdColumn = true;
 let contractors = [];
 let selectedContractor = null;
 
@@ -125,6 +126,25 @@ async function detectContractorsTable() {
   }
 
   throw new Error(`Błąd sprawdzania tabeli kontrahentow: ${error.message}`);
+}
+
+async function detectContractorIdColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, contractor_id")
+    .limit(1);
+
+  if (!error) {
+    hasContractorIdColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /contractor_id/i.test(error.message)) {
+    hasContractorIdColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania powiazania kontrahenta: ${error.message}`);
 }
 
 function formatDateTime(value) {
@@ -427,6 +447,7 @@ function getContractorPayload() {
     : contractorAddress;
 
   return {
+    ...(hasContractorIdColumn ? { contractor_id: selectedContractor?.id || null } : {}),
     contractor_name: contractorName,
     contractor_contact: contractorContact,
     contractor_phone: selectedContractor?.phone || "",
@@ -580,6 +601,7 @@ async function init() {
     ensureSupabaseConfigured();
     await detectRentalMetricsColumns();
     await detectRentalItemReturnColumns();
+    await detectContractorIdColumn();
     await detectContractorsTable();
     await detectWarehouseStockColumns();
     renderDataMode(

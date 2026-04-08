@@ -17,6 +17,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 let rentalOrders = [];
 let hasRentalMetricsColumns = true;
 let hasSettlementColumn = true;
+let hasContractorIdColumn = true;
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
@@ -148,14 +149,22 @@ function fromOrderRow(row) {
   const borrowedTotalQuantity = Number(
     row.borrowed_total_quantity ?? (outstandingQuantity + returnedQuantity)
   );
-  const parsedContact = parseContractorContact(row.contractor_contact || "");
+  const relation = row.contractor || null;
+  const parsedContact = relation
+    ? {
+        nip: relation.nip || "",
+        street: relation.street || "",
+        postalCode: relation.postal_code || "",
+        city: relation.city || "",
+      }
+    : parseContractorContact(row.contractor_contact || "");
 
   return {
     id: row.id,
-    contractorName: row.contractor_name || "",
+    contractorName: relation?.name || row.contractor_name || "",
     contractorContact: row.contractor_contact || "",
-    contractorPhone: row.contractor_phone || "",
-    contractorEmail: row.contractor_email || "",
+    contractorPhone: relation?.phone || row.contractor_phone || "",
+    contractorEmail: relation?.email || row.contractor_email || "",
     contractorNip: parsedContact.nip || "",
     contractorStreet: parsedContact.street || "",
     contractorPostalCode: parsedContact.postalCode || "",
@@ -182,9 +191,12 @@ function fromOrderRow(row) {
 }
 
 async function fetchRentalOrders() {
+  const contractorRelation = hasContractorIdColumn
+    ? ", contractor:contractors(id, name, nip, street, postal_code, city, phone, email)"
+    : "";
   const selectFields = hasRentalMetricsColumns
-    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)`
-    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)`;
+    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)${contractorRelation}`
+    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)${contractorRelation}`;
 
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -193,6 +205,25 @@ async function fetchRentalOrders() {
 
   if (error) throw new Error(`Błąd pobierania list wynajmu: ${error.message}`);
   rentalOrders = (data || []).map(fromOrderRow);
+}
+
+async function detectContractorIdColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, contractor_id")
+    .limit(1);
+
+  if (!error) {
+    hasContractorIdColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /contractor_id/i.test(error.message)) {
+    hasContractorIdColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania powiazania kontrahenta: ${error.message}`);
 }
 
 async function detectRentalMetricsColumns() {
@@ -387,6 +418,7 @@ async function init() {
   loadBuildVersion();
   try {
     ensureSupabaseConfigured();
+    await detectContractorIdColumn();
     await detectSettlementColumn();
     await detectRentalMetricsColumns();
     renderDataMode();
