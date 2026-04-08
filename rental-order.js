@@ -104,13 +104,31 @@ function parseContractorContact(value) {
   let city = "";
 
   if (addressPart) {
-    const addressMatch = addressPart.match(/^(.*?),\s*([0-9]{2}-[0-9]{3})\s+(.+)$/);
-    if (addressMatch) {
-      street = addressMatch[1].trim();
-      postalCode = addressMatch[2].trim();
-      city = addressMatch[3].trim();
+    const normalizedAddress = addressPart.replace(/\s+/g, " ").trim();
+    const postalAtEnd = normalizedAddress.match(/([0-9]{2}-[0-9]{3})\s+(.+)$/);
+
+    if (postalAtEnd) {
+      postalCode = postalAtEnd[1].trim();
+      city = postalAtEnd[2].trim();
+      street = normalizedAddress
+        .slice(0, postalAtEnd.index)
+        .replace(/,\s*$/, "")
+        .trim();
     } else {
-      street = addressPart.trim();
+      const commaParts = normalizedAddress.split(",").map((part) => part.trim()).filter(Boolean);
+      if (commaParts.length > 1) {
+        street = commaParts[0];
+        const tail = commaParts.slice(1).join(" ");
+        const postalInTail = tail.match(/^([0-9]{2}-[0-9]{3})\s+(.+)$/);
+        if (postalInTail) {
+          postalCode = postalInTail[1].trim();
+          city = postalInTail[2].trim();
+        } else {
+          city = tail;
+        }
+      } else {
+        street = normalizedAddress;
+      }
     }
   }
 
