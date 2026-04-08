@@ -134,7 +134,7 @@ body {
 
 .rental-admin-layout {
   max-width: 1400px;
-  grid-template-columns: minmax(360px, 0.92fr) minmax(0, 1.4fr);
+  grid-template-columns: 1fr;
   align-items: start;
 }
 
@@ -144,7 +144,7 @@ body {
 }
 
 .orders-card {
-  grid-row: span 2;
+  width: 100%;
 }
 
 .selected-order-card,
