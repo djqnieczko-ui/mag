@@ -312,6 +312,10 @@ select:focus {
   max-width: 96px;
 }
 
+.history-card input[type="date"] {
+  min-width: 150px;
+}
+
 .stats {
   margin: 14px 0;
   display: grid;

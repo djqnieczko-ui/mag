@@ -34,9 +34,14 @@ create table if not exists public.rental_orders (
   contractor_contact text,
   contractor_phone text,
   contractor_email text,
+  declared_return_date date,
+  actual_return_date date,
   notes text,
   created_at timestamptz not null default now()
 );
+
+alter table public.rental_orders add column if not exists declared_return_date date;
+alter table public.rental_orders add column if not exists actual_return_date date;
 
 create table if not exists public.rental_order_items (
   id bigserial primary key,
