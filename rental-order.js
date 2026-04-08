@@ -611,7 +611,7 @@ function validateSelectedOrder(order) {
 
   const payload = getOrderUpdatePayload();
   if (!payload.contractor_name) {
-    throw new Error("Uzupelnij nazwe kontrahenta.");
+    throw new Error("Uzupelnij nazwe firmy.");
   }
   if (!payload.declared_return_date) {
     throw new Error("Uzupelnij deklarowana date zwrotu.");
