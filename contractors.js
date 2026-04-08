@@ -32,6 +32,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 
 let hasSettlementColumn = true;
 let hasContractorsTable = true;
+let hasContractorIdColumn = true;
 let rentalOrders = [];
 let contractors = [];
 let editingContractorId = null;
@@ -184,6 +185,25 @@ async function detectContractorsTable() {
   }
 
   throw new Error(`Blad sprawdzania tabeli kontrahentow: ${error.message}`);
+}
+
+async function detectContractorIdColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, contractor_id")
+    .limit(1);
+
+  if (!error) {
+    hasContractorIdColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /contractor_id/i.test(error.message)) {
+    hasContractorIdColumn = false;
+    return;
+  }
+
+  throw new Error(`Blad sprawdzania powiazania kontrahenta: ${error.message}`);
 }
 
 async function fetchRentalOrders() {
@@ -470,13 +490,39 @@ async function saveContractor(event) {
       contractor_email: payload.email,
     };
 
-    const { error: orderUpdateError } = await supabaseClient
-      .from(RENTAL_ORDERS_TABLE)
-      .update(orderPayload)
-      .eq("contractor_name", previousContractorName);
+    if (hasContractorIdColumn) {
+      const { error: linkedUpdateError } = await supabaseClient
+        .from(RENTAL_ORDERS_TABLE)
+        .update(orderPayload)
+        .eq("contractor_id", editingContractorId);
 
-    if (orderUpdateError) {
-      throw new Error(`Kontrahent zapisany, ale nie udalo sie zaktualizowac WZ: ${orderUpdateError.message}`);
+      if (linkedUpdateError) {
+        throw new Error(`Kontrahent zapisany, ale nie udalo sie zaktualizowac WZ po ID: ${linkedUpdateError.message}`);
+      }
+
+      if (previousContractorName) {
+        const { error: legacyUpdateError } = await supabaseClient
+          .from(RENTAL_ORDERS_TABLE)
+          .update({
+            ...orderPayload,
+            contractor_id: editingContractorId,
+          })
+          .is("contractor_id", null)
+          .eq("contractor_name", previousContractorName);
+
+        if (legacyUpdateError) {
+          throw new Error(`Kontrahent zapisany, ale nie udalo sie zaktualizowac starszych WZ: ${legacyUpdateError.message}`);
+        }
+      }
+    } else {
+      const { error: orderUpdateError } = await supabaseClient
+        .from(RENTAL_ORDERS_TABLE)
+        .update(orderPayload)
+        .eq("contractor_name", previousContractorName);
+
+      if (orderUpdateError) {
+        throw new Error(`Kontrahent zapisany, ale nie udalo sie zaktualizowac WZ: ${orderUpdateError.message}`);
+      }
     }
   }
 
@@ -523,6 +569,7 @@ async function init() {
   try {
     ensureSupabaseConfigured();
     await detectSettlementColumn();
+    await detectContractorIdColumn();
     await detectContractorsTable();
     renderDataMode();
     await refreshData();

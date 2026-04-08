@@ -41,6 +41,7 @@ let hasSplitStockColumns = true;
 let hasRentalMetricsColumns = true;
 let hasRentalItemReturnColumns = true;
 let hasSettlementColumn = true;
+let hasContractorIdColumn = true;
 let inventoryItems = [];
 let rentalOrders = [];
 let selectedOrderId = null;
@@ -228,12 +229,27 @@ function fromOrderRow(row) {
     row.borrowed_total_quantity ?? (outstandingQuantity + returnedQuantity)
   );
 
+  const relation = row.contractor || null;
+  const parsedContact = relation
+    ? {
+        nip: relation.nip || "",
+        street: relation.street || "",
+        postalCode: relation.postal_code || "",
+        city: relation.city || "",
+      }
+    : parseContractorContact(row.contractor_contact || "");
+
   return {
     id: row.id,
-    contractorName: row.contractor_name || "",
+    contractorId: row.contractor_id || relation?.id || null,
+    contractorName: relation?.name || row.contractor_name || "",
     contractorContact: row.contractor_contact || "",
-    contractorPhone: row.contractor_phone || "",
-    contractorEmail: row.contractor_email || "",
+    contractorPhone: relation?.phone || row.contractor_phone || "",
+    contractorEmail: relation?.email || row.contractor_email || "",
+    contractorNip: parsedContact.nip || "",
+    contractorStreet: parsedContact.street || "",
+    contractorPostalCode: parsedContact.postalCode || "",
+    contractorCity: parsedContact.city || "",
     declaredReturnDate: row.declared_return_date || "",
     actualReturnDate: row.actual_return_date || "",
     settledAt: row.settled_at || "",
@@ -276,9 +292,13 @@ async function fetchRentalOrders() {
     ? "id, device_code, department, category, producer, name, quantity, borrowed_quantity, returned_quantity"
     : "id, device_code, department, category, producer, name, quantity";
 
+  const contractorRelation = hasContractorIdColumn
+    ? ", contractor:contractors(id, name, nip, street, postal_code, city, phone, email)"
+    : "";
+
   const selectFields = hasRentalMetricsColumns
-    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})`
-    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(${itemSelectFields})`;
+    ? `id, contractor_id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})${contractorRelation}`
+    : `id, contractor_id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(${itemSelectFields})${contractorRelation}`;
 
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -287,6 +307,25 @@ async function fetchRentalOrders() {
 
   if (error) throw new Error(`Błąd pobierania list wynajmu: ${error.message}`);
   rentalOrders = (data || []).map(fromOrderRow);
+}
+
+async function detectContractorIdColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, contractor_id")
+    .limit(1);
+
+  if (!error) {
+    hasContractorIdColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /contractor_id/i.test(error.message)) {
+    hasContractorIdColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania powiazania kontrahenta: ${error.message}`);
 }
 
 async function detectRentalItemReturnColumns() {
@@ -631,12 +670,11 @@ function fillSelectedOrderForm(order) {
     return;
   }
 
-  const parsedContact = parseContractorContact(order.contractorContact);
   orderFields.contractorName.value = order.contractorName;
-  orderFields.contractorNip.value = parsedContact.nip;
-  orderFields.contractorStreet.value = parsedContact.street;
-  orderFields.contractorPostalCode.value = parsedContact.postalCode;
-  orderFields.contractorCity.value = parsedContact.city;
+  orderFields.contractorNip.value = order.contractorNip || "";
+  orderFields.contractorStreet.value = order.contractorStreet || "";
+  orderFields.contractorPostalCode.value = order.contractorPostalCode || "";
+  orderFields.contractorCity.value = order.contractorCity || "";
   orderFields.contractorPhone.value = order.contractorPhone;
   orderFields.contractorEmail.value = order.contractorEmail;
   orderFields.declaredReturnDate.value = order.declaredReturnDate;
@@ -1245,6 +1283,7 @@ async function init() {
     selectedOrderId = params.get("id");
 
     ensureSupabaseConfigured();
+    await detectContractorIdColumn();
     await detectSettlementColumn();
     await detectRentalMetricsColumns();
     await detectRentalItemReturnColumns();
