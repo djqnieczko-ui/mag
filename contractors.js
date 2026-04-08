@@ -40,6 +40,24 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function buildContractorContactFromPayload(payload) {
+  const nip = String(payload.nip || "").trim();
+  const street = String(payload.street || "").trim();
+  const postalCode = String(payload.postal_code || "").trim();
+  const city = String(payload.city || "").trim();
+
+  const cityLine = [postalCode, city].filter(Boolean).join(" ");
+  const address = [street, cityLine].filter(Boolean).join(", ");
+
+  if (nip && address) {
+    return `NIP: ${nip} | ${address}`;
+  }
+  if (nip) {
+    return `NIP: ${nip}`;
+  }
+  return address;
+}
+
 function ensureSupabaseConfigured() {
   if (!supabaseUrl || !supabaseAnonKey || !supabaseClient) {
     throw new Error("Brak konfiguracji Supabase w config.js");
@@ -423,6 +441,10 @@ async function saveContractor(event) {
   }
 
   const action = editingContractorId ? "update" : "insert";
+  const currentContractor = editingContractorId
+    ? contractors.find((item) => item.id === editingContractorId) || null
+    : null;
+  const previousContractorName = currentContractor?.name || "";
   let error = null;
 
   if (action === "update") {
@@ -438,6 +460,24 @@ async function saveContractor(event) {
 
   if (error) {
     throw new Error(`Blad zapisu kontrahenta: ${error.message}`);
+  }
+
+  if (action === "update") {
+    const orderPayload = {
+      contractor_name: payload.name,
+      contractor_contact: buildContractorContactFromPayload(payload),
+      contractor_phone: payload.phone,
+      contractor_email: payload.email,
+    };
+
+    const { error: orderUpdateError } = await supabaseClient
+      .from(RENTAL_ORDERS_TABLE)
+      .update(orderPayload)
+      .eq("contractor_name", previousContractorName);
+
+    if (orderUpdateError) {
+      throw new Error(`Kontrahent zapisany, ale nie udalo sie zaktualizowac WZ: ${orderUpdateError.message}`);
+    }
   }
 
   await fetchContractors();
