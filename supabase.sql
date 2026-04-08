@@ -11,13 +11,17 @@ create table if not exists public.warehouse_items (
 
 alter table public.warehouse_items enable row level security;
 
-create policy if not exists "anon_read_items"
+drop policy if exists "anon_read_items" on public.warehouse_items;
+
+create policy "anon_read_items"
   on public.warehouse_items
   for select
   to anon
   using (true);
 
-create policy if not exists "anon_write_items"
+drop policy if exists "anon_write_items" on public.warehouse_items;
+
+create policy "anon_write_items"
   on public.warehouse_items
   for all
   to anon
