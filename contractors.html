@@ -61,6 +61,7 @@
               <th>Telefon</th>
               <th>Email</th>
               <th>WZ</th>
+              <th>Akcje</th>
             </tr>
           </thead>
           <tbody id="contractors-body"></tbody>
@@ -80,6 +81,7 @@
       </div>
 
       <form id="contractor-create-form" class="modal-form">
+        <input type="hidden" id="edit-contractor-id" />
         <div class="grid">
           <label>
             Nazwa firmy
@@ -117,7 +119,7 @@
 
         <div class="modal-actions">
           <button type="button" class="btn btn-light" data-action="close-modal">Anuluj</button>
-          <button type="submit" class="btn btn-primary">Dodaj</button>
+          <button type="submit" class="btn btn-primary" id="contractor-submit-button">Dodaj</button>
         </div>
       </form>
     </div>
@@ -133,6 +135,7 @@
       <td data-field="phone"></td>
       <td data-field="email"></td>
       <td data-field="wzSummary"></td>
+      <td data-field="actions"></td>
     </tr>
   </template>
 

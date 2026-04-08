@@ -11,6 +11,9 @@ const contractorRowTemplate = document.getElementById("contractor-row-template")
 const openContractorModalButton = document.getElementById("open-contractor-modal");
 const contractorModal = document.getElementById("contractor-modal");
 const contractorCreateForm = document.getElementById("contractor-create-form");
+const contractorModalTitle = document.getElementById("contractor-modal-title");
+const contractorSubmitButton = document.getElementById("contractor-submit-button");
+const editContractorId = document.getElementById("edit-contractor-id");
 
 const contractorFields = {
   name: document.getElementById("new-contractor-name"),
@@ -31,6 +34,7 @@ let hasSettlementColumn = true;
 let hasContractorsTable = true;
 let rentalOrders = [];
 let contractors = [];
+let editingContractorId = null;
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
@@ -315,13 +319,56 @@ function renderContractorsTable() {
     setCopyCell(row, "phone", rowData.phone || "-");
     setCopyCell(row, "email", rowData.email || "-");
     setCopyCell(row, "wzSummary", `${rowData.allCount}/${rowData.returnedCount}/${rowData.inProgressCount}/${rowData.overdueCount}`);
+
+    const actionsCell = row.querySelector('[data-field="actions"]');
+    if (actionsCell) {
+      if (rowData.id) {
+        const editButton = document.createElement("button");
+        editButton.type = "button";
+        editButton.className = "btn btn-light";
+        editButton.textContent = "Edytuj";
+        editButton.addEventListener("click", () => {
+          openContractorModal("edit", rowData.id);
+        });
+        actionsCell.appendChild(editButton);
+      } else {
+        actionsCell.textContent = "-";
+      }
+    }
+
     contractorsBody.appendChild(row);
   }
 
   renderStats(rows);
 }
 
-function openContractorModal() {
+function setContractorModalMode(mode) {
+  const isEdit = mode === "edit";
+  contractorModalTitle.textContent = isEdit ? "Edytuj kontrahenta" : "Dodaj kontrahenta";
+  contractorSubmitButton.textContent = isEdit ? "Zapisz" : "Dodaj";
+}
+
+function openContractorModal(mode = "create", contractorId = null) {
+  editingContractorId = mode === "edit" ? contractorId : null;
+  editContractorId.value = editingContractorId || "";
+  setContractorModalMode(mode);
+
+  if (mode === "edit" && contractorId) {
+    const contractor = contractors.find((item) => item.id === contractorId);
+    if (contractor) {
+      contractorFields.name.value = contractor.name || "";
+      contractorFields.nip.value = contractor.nip || "";
+      contractorFields.street.value = contractor.street || "";
+      contractorFields.postalCode.value = contractor.postal_code || "";
+      contractorFields.city.value = contractor.city || "";
+      contractorFields.phone.value = contractor.phone || "";
+      contractorFields.email.value = contractor.email || "";
+      contractorFields.notes.value = contractor.notes || "";
+    }
+  } else {
+    contractorCreateForm.reset();
+  }
+
   contractorModal.classList.remove("hidden");
   contractorFields.name.focus();
 }
@@ -329,9 +376,12 @@ function openContractorModal() {
 function closeContractorModal() {
   contractorModal.classList.add("hidden");
   contractorCreateForm.reset();
+  editContractorId.value = "";
+  editingContractorId = null;
+  setContractorModalMode("create");
 }
 
-async function createContractor(event) {
+async function saveContractor(event) {
   event.preventDefault();
   setContractorsResult();
 
@@ -372,18 +422,31 @@ async function createContractor(event) {
     throw new Error("Uzupelnij email.");
   }
 
-  const { error } = await supabaseClient
-    .from(CONTRACTORS_TABLE)
-    .insert(payload);
+  const action = editingContractorId ? "update" : "insert";
+  let error = null;
+
+  if (action === "update") {
+    ({ error } = await supabaseClient
+      .from(CONTRACTORS_TABLE)
+      .update(payload)
+      .eq("id", editingContractorId));
+  } else {
+    ({ error } = await supabaseClient
+      .from(CONTRACTORS_TABLE)
+      .insert(payload));
+  }
 
   if (error) {
-    throw new Error(`Blad dodawania kontrahenta: ${error.message}`);
+    throw new Error(`Blad zapisu kontrahenta: ${error.message}`);
   }
 
   await fetchContractors();
   renderContractorsTable();
   closeContractorModal();
-  setContractorsResult("Kontrahent dodany.", "success");
+  setContractorsResult(
+    action === "update" ? "Kontrahent zaktualizowany." : "Kontrahent dodany.",
+    "success"
+  );
 }
 
 async function refreshData() {
@@ -393,10 +456,10 @@ async function refreshData() {
 }
 
 contractorsSearch.addEventListener("input", renderContractorsTable);
-openContractorModalButton.addEventListener("click", openContractorModal);
+openContractorModalButton.addEventListener("click", () => openContractorModal("create"));
 contractorCreateForm.addEventListener("submit", async (event) => {
   try {
-    await createContractor(event);
+    await saveContractor(event);
   } catch (error) {
     setContractorsResult(error.message, "error");
   }

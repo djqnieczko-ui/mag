@@ -688,11 +688,12 @@ function addItemToSelectedOrder(item) {
 }
 
 function getOrderUpdatePayload() {
+  const order = getSelectedOrder();
   return {
-    contractor_name: orderFields.contractorName.value.trim(),
-    contractor_contact: buildContractorContactFromFields(),
-    contractor_phone: orderFields.contractorPhone.value.trim(),
-    contractor_email: orderFields.contractorEmail.value.trim(),
+    contractor_name: order?.contractorName || "",
+    contractor_contact: order?.contractorContact || "",
+    contractor_phone: order?.contractorPhone || "",
+    contractor_email: order?.contractorEmail || "",
     declared_return_date: orderFields.declaredReturnDate.value || null,
     notes: orderFields.notes.value.trim(),
   };
@@ -1129,10 +1130,6 @@ async function deleteSelectedOrder() {
     selectedDraftItems.some(
       (item) => (getOriginalQuantityMap(order).get(item.deviceCode) || 0) !== item.quantity
     ) ||
-    orderFields.contractorName.value.trim() !== order.contractorName ||
-    buildContractorContactFromFields() !== order.contractorContact ||
-    orderFields.contractorPhone.value.trim() !== order.contractorPhone ||
-    orderFields.contractorEmail.value.trim() !== order.contractorEmail ||
     (orderFields.declaredReturnDate.value || "") !== (order.declaredReturnDate || "") ||
     orderFields.notes.value.trim() !== order.notes;
 
