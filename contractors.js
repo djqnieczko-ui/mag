@@ -79,6 +79,53 @@ function setContractorsResult(message = "", tone = "") {
   }
 }
 
+async function copyToClipboard(value) {
+  const text = String(value ?? "");
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const temp = document.createElement("textarea");
+  temp.value = text;
+  temp.setAttribute("readonly", "");
+  temp.style.position = "absolute";
+  temp.style.left = "-9999px";
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand("copy");
+  document.body.removeChild(temp);
+}
+
+function setCopyCell(row, fieldName, rawValue) {
+  const cell = row.querySelector(`[data-field="${fieldName}"]`);
+  if (!cell) return;
+
+  const displayValue = rawValue || "-";
+  cell.innerHTML = "";
+
+  const valueSpan = document.createElement("span");
+  valueSpan.className = "cell-copy-value";
+  valueSpan.textContent = displayValue;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-light cell-copy-btn";
+  button.textContent = "Kopiuj";
+  button.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      await copyToClipboard(displayValue);
+      setContractorsResult("Skopiowano do schowka.", "success");
+    } catch {
+      setContractorsResult("Nie udalo sie skopiowac do schowka.", "error");
+    }
+  });
+
+  cell.appendChild(valueSpan);
+  cell.appendChild(button);
+}
+
 async function detectSettlementColumn() {
   const { error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -260,14 +307,14 @@ function renderContractorsTable() {
 
   for (const rowData of rows) {
     const row = contractorRowTemplate.content.cloneNode(true);
-    row.querySelector('[data-field="name"]').textContent = rowData.name;
-    row.querySelector('[data-field="nip"]').textContent = rowData.nip || "-";
-    row.querySelector('[data-field="street"]').textContent = rowData.street || "-";
-    row.querySelector('[data-field="postalCode"]').textContent = rowData.postalCode || "-";
-    row.querySelector('[data-field="city"]').textContent = rowData.city || "-";
-    row.querySelector('[data-field="phone"]').textContent = rowData.phone || "-";
-    row.querySelector('[data-field="email"]').textContent = rowData.email || "-";
-    row.querySelector('[data-field="wzSummary"]').textContent = `${rowData.allCount}/${rowData.returnedCount}/${rowData.inProgressCount}/${rowData.overdueCount}`;
+    setCopyCell(row, "name", rowData.name);
+    setCopyCell(row, "nip", rowData.nip || "-");
+    setCopyCell(row, "street", rowData.street || "-");
+    setCopyCell(row, "postalCode", rowData.postalCode || "-");
+    setCopyCell(row, "city", rowData.city || "-");
+    setCopyCell(row, "phone", rowData.phone || "-");
+    setCopyCell(row, "email", rowData.email || "-");
+    setCopyCell(row, "wzSummary", `${rowData.allCount}/${rowData.returnedCount}/${rowData.inProgressCount}/${rowData.overdueCount}`);
     contractorsBody.appendChild(row);
   }
 
