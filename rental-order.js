@@ -33,6 +33,7 @@ const supabaseAnonKey = window.APP_CONFIG?.supabaseAnonKey || "";
 const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKey);
 
 let hasSplitStockColumns = true;
+let hasRentalMetricsColumns = true;
 let inventoryItems = [];
 let rentalOrders = [];
 let selectedOrderId = null;
@@ -120,6 +121,15 @@ function fromInventoryRow(row) {
 }
 
 function fromOrderRow(row) {
+  const outstandingQuantity = (row.rental_order_items || []).reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  );
+  const returnedQuantity = Number(row.returned_quantity ?? 0);
+  const borrowedTotalQuantity = Number(
+    row.borrowed_total_quantity ?? (outstandingQuantity + returnedQuantity)
+  );
+
   return {
     id: row.id,
     contractorName: row.contractor_name || "",
@@ -128,6 +138,9 @@ function fromOrderRow(row) {
     contractorEmail: row.contractor_email || "",
     declaredReturnDate: row.declared_return_date || "",
     actualReturnDate: row.actual_return_date || "",
+    borrowedTotalQuantity,
+    returnedQuantity,
+    outstandingQuantity,
     notes: row.notes || "",
     createdAt: row.created_at,
     items: (row.rental_order_items || []).map((item) => ({
@@ -158,13 +171,36 @@ async function fetchInventory() {
 }
 
 async function fetchRentalOrders() {
+  const selectFields = hasRentalMetricsColumns
+    ? "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)"
+    : "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)";
+
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
-    .select("id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)")
+    .select(selectFields)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Błąd pobierania list wynajmu: ${error.message}`);
   rentalOrders = (data || []).map(fromOrderRow);
+}
+
+async function detectRentalMetricsColumns() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, borrowed_total_quantity, returned_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasRentalMetricsColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /borrowed_total_quantity|returned_quantity/i.test(error.message)) {
+    hasRentalMetricsColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumn list wynajmu: ${error.message}`);
 }
 
 function startOfToday() {
@@ -186,6 +222,14 @@ function getOrderStatus(order) {
     return {
       label: `Zwrocono ${formatDate(order.actualReturnDate)}`,
       tone: "returned",
+      days: null,
+    };
+  }
+
+  if (order.returnedQuantity > 0 && order.outstandingQuantity > 0) {
+    return {
+      label: "Czesciowy zwrot",
+      tone: "partial",
       days: null,
     };
   }
@@ -258,13 +302,19 @@ function renderSelectedOrderHeader(order) {
 
   const status = getOrderStatus(order);
   const totalItems = selectedDraftItems.reduce((sum, item) => sum + item.quantity, 0);
+  const borrowedTotal = Number(order.borrowedTotalQuantity || totalItems);
+  const returnedTotal = Number(order.returnedQuantity || 0);
+  const missingTotal = Math.max(0, borrowedTotal - returnedTotal);
   const days = status.days === null ? "-" : status.days;
 
   selectedOrderMeta.textContent = `Dokument z ${formatDateTime(order.createdAt)} • ID: ${order.id}`;
   selectedOrderStatus.textContent = status.label;
   selectedOrderStatus.className = `status-badge status-${status.tone}`;
   selectedOrderSummary.innerHTML = [
-    ["Pozycji na WZ", totalItems],
+    ["Pozostalo na WZ", totalItems],
+    ["Wypozyczono", borrowedTotal],
+    ["Zwrocono", returnedTotal],
+    ["Braki", missingTotal],
     ["Dni do zwrotu", days],
     ["Faktyczny zwrot", order.actualReturnDate ? formatDate(order.actualReturnDate) : "brak"],
   ]
@@ -486,6 +536,11 @@ function validateSelectedOrder(order) {
     throw new Error("Lista WZ musi zawierac co najmniej jedna pozycje.");
   }
 
+  const draftOutstanding = selectedDraftItems.reduce((sum, item) => sum + item.quantity, 0);
+  if (hasRentalMetricsColumns && draftOutstanding < Number(order.returnedQuantity || 0)) {
+    throw new Error("Pozostala ilosc na WZ nie moze byc mniejsza niz juz zwrocona ilosc.");
+  }
+
   for (const item of selectedDraftItems) {
     const limit = getEditableLimit(item.deviceCode);
     if (!Number.isInteger(item.quantity) || item.quantity < 1) {
@@ -589,6 +644,14 @@ function buildOriginalInsertPayload(order) {
 async function saveSelectedOrderChanges() {
   const order = getSelectedOrder();
   const updatePayload = validateSelectedOrder(order);
+  const draftOutstanding = selectedDraftItems.reduce((sum, item) => sum + item.quantity, 0);
+  const nextBorrowedTotal = hasRentalMetricsColumns
+    ? Number(order.returnedQuantity || 0) + draftOutstanding
+    : null;
+
+  if (hasRentalMetricsColumns) {
+    updatePayload.borrowed_total_quantity = nextBorrowedTotal;
+  }
 
   await fetchInventory();
   const adjustments = getInventoryAdjustments(order);
@@ -686,9 +749,16 @@ async function receiveReturn() {
 
   const today = new Date();
   const isoDate = today.toISOString().slice(0, 10);
+  const orderUpdatePayload = hasRentalMetricsColumns
+    ? {
+        actual_return_date: isoDate,
+        returned_quantity: Number(order.borrowedTotalQuantity || 0),
+      }
+    : { actual_return_date: isoDate };
+
   const { error: orderError } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
-    .update({ actual_return_date: isoDate })
+    .update(orderUpdatePayload)
     .eq("id", order.id);
 
   if (orderError) {
@@ -753,6 +823,15 @@ async function receivePartialReturn(orderItemId, returnQuantity) {
     nextCurrentQuantity,
   });
 
+  const nextReturnedQuantity = hasRentalMetricsColumns
+    ? Math.min(
+        Number(order.borrowedTotalQuantity || 0),
+        Number(order.returnedQuantity || 0) + returnQuantity
+      )
+    : null;
+
+  const previousReturnedQuantity = Number(order.returnedQuantity || 0);
+
   try {
     const remainingQuantity = orderItem.quantity - returnQuantity;
     if (remainingQuantity > 0) {
@@ -774,17 +853,49 @@ async function receivePartialReturn(orderItemId, returnQuantity) {
     }
 
     const shouldCloseOrder = order.items.length === 1 && remainingQuantity === 0;
+    const orderPayload = {};
+    if (hasRentalMetricsColumns) {
+      orderPayload.returned_quantity = nextReturnedQuantity;
+    }
     if (shouldCloseOrder) {
-      const isoDate = new Date().toISOString().slice(0, 10);
-      const { error: closeOrderError } = await supabaseClient
+      orderPayload.actual_return_date = new Date().toISOString().slice(0, 10);
+    }
+    if (Object.keys(orderPayload).length) {
+      const { error: updateOrderError } = await supabaseClient
         .from(RENTAL_ORDERS_TABLE)
-        .update({ actual_return_date: isoDate })
+        .update(orderPayload)
         .eq("id", order.id);
-      if (closeOrderError) {
-        throw new Error(`Blad oznaczania dokumentu jako zwrocony: ${closeOrderError.message}`);
+      if (updateOrderError) {
+        throw new Error(`Blad aktualizacji dokumentu WZ: ${updateOrderError.message}`);
       }
     }
   } catch (error) {
+    const restoreItemQuantity = orderItem.quantity;
+    if (restoreItemQuantity > 0) {
+      await supabaseClient
+        .from(RENTAL_ITEMS_TABLE)
+        .upsert(
+          {
+            id: orderItem.id,
+            order_id: order.id,
+            device_code: orderItem.deviceCode,
+            department: orderItem.department,
+            category: orderItem.category,
+            producer: orderItem.producer,
+            name: orderItem.name,
+            quantity: restoreItemQuantity,
+          },
+          { onConflict: "id" }
+        );
+    }
+
+    if (hasRentalMetricsColumns) {
+      await supabaseClient
+        .from(RENTAL_ORDERS_TABLE)
+        .update({ returned_quantity: previousReturnedQuantity })
+        .eq("id", order.id);
+    }
+
     await rollbackInventoryAdjustments([
       {
         deviceCode: orderItem.deviceCode,
@@ -931,6 +1042,7 @@ async function init() {
     selectedOrderId = params.get("id");
 
     ensureSupabaseConfigured();
+    await detectRentalMetricsColumns();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns

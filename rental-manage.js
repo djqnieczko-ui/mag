@@ -15,6 +15,7 @@ const supabaseAnonKey = window.APP_CONFIG?.supabaseAnonKey || "";
 const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKey);
 
 let rentalOrders = [];
+let hasRentalMetricsColumns = true;
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
@@ -67,6 +68,15 @@ function renderDataMode(status = "Dane: Supabase (cloud)") {
 }
 
 function fromOrderRow(row) {
+  const outstandingQuantity = (row.rental_order_items || []).reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  );
+  const returnedQuantity = Number(row.returned_quantity ?? 0);
+  const borrowedTotalQuantity = Number(
+    row.borrowed_total_quantity ?? (outstandingQuantity + returnedQuantity)
+  );
+
   return {
     id: row.id,
     contractorName: row.contractor_name || "",
@@ -75,6 +85,9 @@ function fromOrderRow(row) {
     contractorEmail: row.contractor_email || "",
     declaredReturnDate: row.declared_return_date || "",
     actualReturnDate: row.actual_return_date || "",
+    borrowedTotalQuantity,
+    returnedQuantity,
+    outstandingQuantity,
     notes: row.notes || "",
     createdAt: row.created_at,
     items: (row.rental_order_items || []).map((item) => ({
@@ -91,13 +104,36 @@ function fromOrderRow(row) {
 }
 
 async function fetchRentalOrders() {
+  const selectFields = hasRentalMetricsColumns
+    ? "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)"
+    : "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)";
+
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
-    .select("id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)")
+    .select(selectFields)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Błąd pobierania list wynajmu: ${error.message}`);
   rentalOrders = (data || []).map(fromOrderRow);
+}
+
+async function detectRentalMetricsColumns() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, borrowed_total_quantity, returned_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasRentalMetricsColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /borrowed_total_quantity|returned_quantity/i.test(error.message)) {
+    hasRentalMetricsColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumn list wynajmu: ${error.message}`);
 }
 
 function startOfToday() {
@@ -119,6 +155,14 @@ function getOrderStatus(order) {
     return {
       label: `Zwrocono ${formatDate(order.actualReturnDate)}`,
       tone: "returned",
+      days: null,
+    };
+  }
+
+  if (order.returnedQuantity > 0 && order.outstandingQuantity > 0) {
+    return {
+      label: "Czesciowy zwrot",
+      tone: "partial",
       days: null,
     };
   }
@@ -179,7 +223,6 @@ function renderOrdersList() {
     const row = orderRowTemplate.content.cloneNode(true);
     const tr = row.querySelector("tr");
     const status = getOrderStatus(order);
-    const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
     const daysLabel = status.days === null ? "-" : status.days < 0 ? `${Math.abs(status.days)} dni po terminie` : `${status.days} dni`;
     const badge = document.createElement("span");
     const openLink = row.querySelector('[data-action="open-order"]');
@@ -197,7 +240,8 @@ function renderOrdersList() {
     row.querySelector('[data-field="contractor"]').textContent = order.contractorName || "-";
     row.querySelector('[data-field="returnDate"]').textContent = formatDate(order.declaredReturnDate);
     row.querySelector('[data-field="daysToReturn"]').textContent = daysLabel;
-    row.querySelector('[data-field="itemCount"]').textContent = itemCount;
+    row.querySelector('[data-field="borrowedCount"]').textContent = order.borrowedTotalQuantity;
+    row.querySelector('[data-field="returnedCount"]').textContent = order.returnedQuantity;
     row.querySelector('[data-field="status"]').replaceWith(badge);
     openLink.href = `rental-order.html?id=${encodeURIComponent(order.id)}`;
     openLink.addEventListener("click", (event) => {
@@ -221,6 +265,7 @@ async function init() {
   loadBuildVersion();
   try {
     ensureSupabaseConfigured();
+    await detectRentalMetricsColumns();
     renderDataMode();
     await refreshData();
   } catch (error) {

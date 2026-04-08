@@ -55,12 +55,16 @@ create table if not exists public.rental_orders (
   contractor_email text,
   declared_return_date date,
   actual_return_date date,
+  borrowed_total_quantity integer not null default 0,
+  returned_quantity integer not null default 0,
   notes text,
   created_at timestamptz not null default now()
 );
 
 alter table public.rental_orders add column if not exists declared_return_date date;
 alter table public.rental_orders add column if not exists actual_return_date date;
+alter table public.rental_orders add column if not exists borrowed_total_quantity integer;
+alter table public.rental_orders add column if not exists returned_quantity integer;
 
 create table if not exists public.rental_order_items (
   id bigserial primary key,
@@ -72,6 +76,37 @@ create table if not exists public.rental_order_items (
   name text not null,
   quantity integer not null check (quantity > 0)
 );
+
+with rental_totals as (
+  select order_id, coalesce(sum(quantity), 0)::integer as total_quantity
+  from public.rental_order_items
+  group by order_id
+)
+update public.rental_orders as ro
+set borrowed_total_quantity = coalesce(ro.borrowed_total_quantity, rt.total_quantity, 0),
+    returned_quantity = coalesce(
+      ro.returned_quantity,
+      case when ro.actual_return_date is not null then coalesce(rt.total_quantity, 0) else 0 end,
+      0
+    )
+from rental_totals as rt
+where ro.id = rt.order_id;
+
+update public.rental_orders
+set borrowed_total_quantity = coalesce(borrowed_total_quantity, 0),
+    returned_quantity = coalesce(
+      returned_quantity,
+      case when actual_return_date is not null then coalesce(borrowed_total_quantity, 0) else 0 end
+    );
+
+update public.rental_orders
+set borrowed_total_quantity = greatest(borrowed_total_quantity, returned_quantity),
+    returned_quantity = least(greatest(returned_quantity, 0), greatest(borrowed_total_quantity, returned_quantity));
+
+alter table public.rental_orders alter column borrowed_total_quantity set default 0;
+alter table public.rental_orders alter column returned_quantity set default 0;
+alter table public.rental_orders alter column borrowed_total_quantity set not null;
+alter table public.rental_orders alter column returned_quantity set not null;
 
 alter table public.rental_orders enable row level security;
 alter table public.rental_order_items enable row level security;

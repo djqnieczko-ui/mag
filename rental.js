@@ -32,6 +32,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 let inventoryItems = [];
 let rentalDraft = [];
 let hasSplitStockColumns = true;
+let hasRentalMetricsColumns = true;
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -60,6 +61,25 @@ async function detectWarehouseStockColumns() {
   }
 
   throw new Error(`Błąd sprawdzania schematu magazynu: ${error.message}`);
+}
+
+async function detectRentalMetricsColumns() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, borrowed_total_quantity, returned_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasRentalMetricsColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /borrowed_total_quantity|returned_quantity/i.test(error.message)) {
+    hasRentalMetricsColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania schematu wypozyczen: ${error.message}`);
 }
 
 function formatDateTime(value) {
@@ -308,9 +328,20 @@ async function saveRental() {
     item.availableQuantity = liveItem.currentQuantity;
   }
 
+  const totalBorrowedQuantity = rentalDraft.reduce((sum, item) => sum + item.rentQuantity, 0);
+  const orderPayload = {
+    ...contractor,
+    ...(hasRentalMetricsColumns
+      ? {
+          borrowed_total_quantity: totalBorrowedQuantity,
+          returned_quantity: 0,
+        }
+      : {}),
+  };
+
   const { data: orderData, error: orderError } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
-    .insert(contractor)
+    .insert(orderPayload)
     .select("id")
     .single();
 
@@ -380,6 +411,7 @@ async function init() {
   loadBuildVersion();
   try {
     ensureSupabaseConfigured();
+    await detectRentalMetricsColumns();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns
