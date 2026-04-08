@@ -34,6 +34,7 @@ const supabaseClient = window.supabase?.createClient(supabaseUrl, supabaseAnonKe
 
 let hasSplitStockColumns = true;
 let hasRentalMetricsColumns = true;
+let hasRentalItemReturnColumns = true;
 let inventoryItems = [];
 let rentalOrders = [];
 let selectedOrderId = null;
@@ -153,6 +154,8 @@ function fromOrderRow(row) {
       producer: item.producer,
       name: item.name,
       quantity: Number(item.quantity || 0),
+      borrowedQuantity: Number(item.borrowed_quantity ?? item.quantity ?? 0),
+      returnedQuantity: Number(item.returned_quantity ?? 0),
     })),
   };
 }
@@ -172,9 +175,13 @@ async function fetchInventory() {
 }
 
 async function fetchRentalOrders() {
+  const itemSelectFields = hasRentalItemReturnColumns
+    ? "id, device_code, department, category, producer, name, quantity, borrowed_quantity, returned_quantity"
+    : "id, device_code, department, category, producer, name, quantity";
+
   const selectFields = hasRentalMetricsColumns
-    ? "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)"
-    : "id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(id, device_code, department, category, producer, name, quantity)";
+    ? `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})`
+    : `id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, notes, created_at, rental_order_items(${itemSelectFields})`;
 
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -183,6 +190,25 @@ async function fetchRentalOrders() {
 
   if (error) throw new Error(`Błąd pobierania list wynajmu: ${error.message}`);
   rentalOrders = (data || []).map(fromOrderRow);
+}
+
+async function detectRentalItemReturnColumns() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ITEMS_TABLE)
+    .select("id, borrowed_quantity, returned_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasRentalItemReturnColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /borrowed_quantity|returned_quantity/i.test(error.message)) {
+    hasRentalItemReturnColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumn pozycji WZ: ${error.message}`);
 }
 
 async function detectRentalMetricsColumns() {
@@ -357,6 +383,8 @@ function renderSelectedItems() {
     row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="name"]').textContent = item.name;
     row.querySelector('[data-field="deviceCode"]').textContent = item.deviceCode;
+    row.querySelector('[data-field="borrowedQuantity"]').textContent = item.borrowedQuantity;
+    row.querySelector('[data-field="returnedQuantity"]').textContent = item.returnedQuantity;
     row.querySelector('[data-field="maxQuantity"]').textContent = limit;
 
     const quantityInput = row.querySelector('[data-field="quantity"]');
@@ -371,6 +399,8 @@ function renderSelectedItems() {
       }
       item.quantity = Math.min(nextValue, limit);
       quantityInput.value = String(item.quantity);
+      item.borrowedQuantity = Number(item.returnedQuantity || 0) + item.quantity;
+      row.querySelector('[data-field="borrowedQuantity"]').textContent = item.borrowedQuantity;
       renderSelectedOrderHeader(getSelectedOrder());
       renderInventoryAddList();
     });
@@ -495,6 +525,7 @@ function addItemToSelectedOrder(item) {
   const existing = selectedDraftItems.find((entry) => entry.deviceCode === item.deviceCode);
   if (existing) {
     existing.quantity = Math.min(existing.quantity + 1, getEditableLimit(item.deviceCode));
+    existing.borrowedQuantity = Number(existing.returnedQuantity || 0) + existing.quantity;
   } else {
     selectedDraftItems.push({
       deviceCode: item.deviceCode,
@@ -503,6 +534,8 @@ function addItemToSelectedOrder(item) {
       producer: item.producer,
       name: item.name,
       quantity: 1,
+      borrowedQuantity: 1,
+      returnedQuantity: 0,
     });
   }
 
@@ -632,6 +665,12 @@ function buildDraftInsertPayload(orderId) {
     producer: item.producer,
     name: item.name,
     quantity: item.quantity,
+    ...(hasRentalItemReturnColumns
+      ? {
+          borrowed_quantity: Number(item.returnedQuantity || 0) + Number(item.quantity || 0),
+          returned_quantity: Number(item.returnedQuantity || 0),
+        }
+      : {}),
   }));
 }
 
@@ -644,6 +683,12 @@ function buildOriginalInsertPayload(order) {
     producer: item.producer,
     name: item.name,
     quantity: item.quantity,
+    ...(hasRentalItemReturnColumns
+      ? {
+          borrowed_quantity: Number(item.borrowedQuantity || item.quantity || 0),
+          returned_quantity: Number(item.returnedQuantity || 0),
+        }
+      : {}),
   }));
 }
 
@@ -774,7 +819,6 @@ async function receiveReturn() {
   }
 
   const appliedAdjustments = [];
-  let itemsDeleted = false;
 
   try {
     for (const adjustment of adjustments) {
@@ -782,33 +826,49 @@ async function receiveReturn() {
       appliedAdjustments.push(adjustment);
     }
 
-    const { error: deleteError } = await supabaseClient
-      .from(RENTAL_ITEMS_TABLE)
-      .delete()
-      .eq("order_id", order.id);
-    if (deleteError) {
-      throw new Error(`Blad aktualizacji pozycji zwrotu: ${deleteError.message}`);
-    }
-    itemsDeleted = true;
-
-    const remainingItemsPayload = returnPlan
-      .filter((item) => item.remainingQuantity > 0)
-      .map((item) => ({
-        order_id: order.id,
-        device_code: item.deviceCode,
-        department: item.department,
-        category: item.category,
-        producer: item.producer,
-        name: item.name,
-        quantity: item.remainingQuantity,
-      }));
-
-    if (remainingItemsPayload.length) {
-      const { error: insertError } = await supabaseClient
+    if (hasRentalItemReturnColumns) {
+      for (const item of returnPlan) {
+        const itemPayload = {
+          quantity: item.remainingQuantity,
+          returned_quantity: Number(item.returnedQuantity || 0) + item.returnQuantity,
+          borrowed_quantity: Number(item.borrowedQuantity || item.quantity || 0),
+        };
+        const { error: updateItemError } = await supabaseClient
+          .from(RENTAL_ITEMS_TABLE)
+          .update(itemPayload)
+          .eq("id", item.id);
+        if (updateItemError) {
+          throw new Error(`Blad aktualizacji pozycji zwrotu: ${updateItemError.message}`);
+        }
+      }
+    } else {
+      const { error: deleteError } = await supabaseClient
         .from(RENTAL_ITEMS_TABLE)
-        .insert(remainingItemsPayload);
-      if (insertError) {
-        throw new Error(`Blad zapisu pozostalych pozycji WZ: ${insertError.message}`);
+        .delete()
+        .eq("order_id", order.id);
+      if (deleteError) {
+        throw new Error(`Blad aktualizacji pozycji zwrotu: ${deleteError.message}`);
+      }
+
+      const remainingItemsPayload = returnPlan
+        .filter((item) => item.remainingQuantity > 0)
+        .map((item) => ({
+          order_id: order.id,
+          device_code: item.deviceCode,
+          department: item.department,
+          category: item.category,
+          producer: item.producer,
+          name: item.name,
+          quantity: item.remainingQuantity,
+        }));
+
+      if (remainingItemsPayload.length) {
+        const { error: insertError } = await supabaseClient
+          .from(RENTAL_ITEMS_TABLE)
+          .insert(remainingItemsPayload);
+        if (insertError) {
+          throw new Error(`Blad zapisu pozostalych pozycji WZ: ${insertError.message}`);
+        }
       }
     }
 
@@ -837,7 +897,19 @@ async function receiveReturn() {
 
     return remainingAfter === 0 ? "full" : "partial";
   } catch (error) {
-    if (itemsDeleted) {
+    if (hasRentalItemReturnColumns) {
+      for (const originalItem of order.items) {
+        const rollbackPayload = {
+          quantity: originalItem.quantity,
+          returned_quantity: Number(originalItem.returnedQuantity || 0),
+          borrowed_quantity: Number(originalItem.borrowedQuantity || originalItem.quantity || 0),
+        };
+        await supabaseClient
+          .from(RENTAL_ITEMS_TABLE)
+          .update(rollbackPayload)
+          .eq("id", originalItem.id);
+      }
+    } else {
       await supabaseClient.from(RENTAL_ITEMS_TABLE).delete().eq("order_id", order.id);
       const originalPayload = buildOriginalInsertPayload(order);
       if (originalPayload.length) {
@@ -992,6 +1064,7 @@ async function init() {
 
     ensureSupabaseConfigured();
     await detectRentalMetricsColumns();
+    await detectRentalItemReturnColumns();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns

@@ -77,6 +77,25 @@ create table if not exists public.rental_order_items (
   quantity integer not null check (quantity > 0)
 );
 
+alter table public.rental_order_items drop constraint if exists rental_order_items_quantity_check;
+alter table public.rental_order_items add constraint rental_order_items_quantity_check check (quantity >= 0);
+alter table public.rental_order_items add column if not exists borrowed_quantity integer;
+alter table public.rental_order_items add column if not exists returned_quantity integer;
+
+update public.rental_order_items
+set borrowed_quantity = coalesce(borrowed_quantity, quantity, 0),
+    returned_quantity = coalesce(returned_quantity, 0);
+
+update public.rental_order_items
+set borrowed_quantity = greatest(coalesce(borrowed_quantity, 0), coalesce(returned_quantity, 0), coalesce(quantity, 0)),
+    returned_quantity = least(greatest(coalesce(returned_quantity, 0), 0), greatest(coalesce(borrowed_quantity, 0), coalesce(quantity, 0))),
+    quantity = greatest(coalesce(quantity, 0), 0);
+
+alter table public.rental_order_items alter column borrowed_quantity set default 0;
+alter table public.rental_order_items alter column returned_quantity set default 0;
+alter table public.rental_order_items alter column borrowed_quantity set not null;
+alter table public.rental_order_items alter column returned_quantity set not null;
+
 with rental_totals as (
   select order_id, coalesce(sum(quantity), 0)::integer as total_quantity
   from public.rental_order_items

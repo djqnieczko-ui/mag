@@ -33,6 +33,7 @@ let inventoryItems = [];
 let rentalDraft = [];
 let hasSplitStockColumns = true;
 let hasRentalMetricsColumns = true;
+let hasRentalItemReturnColumns = true;
 
 function normalizeText(value) {
   return String(value).trim().toLowerCase();
@@ -80,6 +81,25 @@ async function detectRentalMetricsColumns() {
   }
 
   throw new Error(`Błąd sprawdzania schematu wypozyczen: ${error.message}`);
+}
+
+async function detectRentalItemReturnColumns() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ITEMS_TABLE)
+    .select("id, borrowed_quantity, returned_quantity")
+    .limit(1);
+
+  if (!error) {
+    hasRentalItemReturnColumns = true;
+    return;
+  }
+
+  if (error.code === "42703" || /borrowed_quantity|returned_quantity/i.test(error.message)) {
+    hasRentalItemReturnColumns = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania schematu pozycji wypozyczen: ${error.message}`);
 }
 
 function formatDateTime(value) {
@@ -356,6 +376,12 @@ async function saveRental() {
     producer: item.producer,
     name: item.name,
     quantity: item.rentQuantity,
+    ...(hasRentalItemReturnColumns
+      ? {
+          borrowed_quantity: item.rentQuantity,
+          returned_quantity: 0,
+        }
+      : {}),
   }));
 
   const { error: itemsError } = await supabaseClient.from(RENTAL_ITEMS_TABLE).insert(itemsPayload);
@@ -412,6 +438,7 @@ async function init() {
   try {
     ensureSupabaseConfigured();
     await detectRentalMetricsColumns();
+    await detectRentalItemReturnColumns();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns

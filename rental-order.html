@@ -93,6 +93,8 @@
               <th>Nazwa</th>
               <th>Kod</th>
               <th>Na WZ</th>
+              <th>Wypozyczono</th>
+              <th>Zwrocono</th>
               <th>Maks</th>
               <th>Zwrot czesciowy</th>
               <th>Akcje</th>
@@ -142,7 +144,9 @@
       <td data-field="producer"></td>
       <td data-field="name"></td>
       <td data-field="deviceCode"></td>
-      <td><input type="number" data-field="quantity" min="1" /></td>
+      <td><input type="number" data-field="quantity" min="0" /></td>
+      <td data-field="borrowedQuantity"></td>
+      <td data-field="returnedQuantity"></td>
       <td data-field="maxQuantity"></td>
       <td>
         <input type="number" data-field="partialReturnQuantity" min="0" value="0" />
