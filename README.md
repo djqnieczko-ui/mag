@@ -27,6 +27,13 @@ window.APP_CONFIG = {
 5. Wypchnij zmiany na GitHub.
 6. Po wdrozeniu strona pokaze w naglowku tryb: `Dane: Supabase (cloud)`.
 
+## Automatyczne migracje Supabase z GitHub Actions
+1. W Supabase przejdz do `Project Settings > Database` i skopiuj `Connection string` dla roli `postgres`.
+2. W GitHub repo przejdz do `Settings > Secrets and variables > Actions`.
+3. Dodaj sekret `SUPABASE_DB_URL` z wartoscia connection string.
+4. Workflow `Supabase schema migration` uruchomi sie automatycznie po zmianie pliku `supabase.sql` na galezi `main`.
+5. Możesz uruchomic workflow recznie z zakladki `Actions` przez `Run workflow`.
+
 ## Publikacja online (GitHub Pages)
 1. W repozytorium GitHub przejdz do `Settings > Pages`.
 2. W `Build and deployment` ustaw `Source: GitHub Actions`.
