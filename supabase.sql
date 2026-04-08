@@ -80,7 +80,7 @@ create policy "anon_read_rental_items"
   using (true);
 
 drop policy if exists "anon_write_rental_items" on public.rental_order_items;
-create policy "anon_write_rental_items"
+create policy "anon_write_rental_items" 
   on public.rental_order_items
   for all
   to anon
