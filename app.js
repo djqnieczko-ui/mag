@@ -17,6 +17,7 @@ const runImportButton = document.getElementById("run-import");
 const csvMeta = document.getElementById("csv-meta");
 const csvMapping = document.getElementById("csv-mapping");
 const csvResult = document.getElementById("csv-result");
+const buildVersion = document.getElementById("build-version");
 
 const TARGET_FIELDS = [
   { key: "department", label: "Dział" },
@@ -88,6 +89,38 @@ function parseNumber(value) {
   const normalized = String(value).trim().replace(",", ".");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "nieznana data";
+  }
+  return date.toLocaleString("pl-PL", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function loadBuildVersion() {
+  if (!buildVersion) return;
+
+  try {
+    const response = await fetch(`build-info.json?ts=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Brak metadanych");
+    }
+
+    const info = await response.json();
+    const shortCommit = String(info.commit || "").slice(0, 7) || "lokalna";
+    const deployedAt = formatDateTime(info.deployedAt);
+    buildVersion.textContent = `Wersja: ${shortCommit} • ${deployedAt}`;
+  } catch {
+    buildVersion.textContent = "Wersja: lokalna";
+  }
 }
 
 function detectDelimiter(headerLine) {
@@ -469,3 +502,4 @@ runImportButton.addEventListener("click", () => {
 
 renderCategoryOptions(fields.department.value);
 renderRows();
+loadBuildVersion();
