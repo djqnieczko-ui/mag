@@ -1,14 +1,14 @@
 :root {
-  --bg: #f3f5ef;
-  --bg-strong: #e5ebe0;
-  --card: rgba(255, 255, 255, 0.88);
-  --text: #1d2a1f;
-  --muted: #5e6d61;
-  --accent: #0f766e;
-  --accent-2: #c2410c;
-  --danger: #b91c1c;
-  --border: rgba(29, 42, 31, 0.15);
-  --shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  --bg: #08111f;
+  --bg-strong: #111c2f;
+  --card: rgba(10, 17, 29, 0.82);
+  --text: #e5eefb;
+  --muted: #8ea1bb;
+  --accent: #38bdf8;
+  --accent-2: #f59e0b;
+  --danger: #f87171;
+  --border: rgba(148, 163, 184, 0.2);
+  --shadow: 0 20px 48px rgba(2, 6, 23, 0.42);
 }
 
 * {
@@ -19,8 +19,9 @@ body {
   margin: 0;
   font-family: "Manrope", sans-serif;
   color: var(--text);
-  background: radial-gradient(circle at 20% 10%, #fef7cd 0%, transparent 45%),
-    radial-gradient(circle at 80% 20%, #dbeafe 0%, transparent 40%),
+  background: radial-gradient(circle at 20% 10%, rgba(56, 189, 248, 0.22) 0%, transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.14) 0%, transparent 32%),
+    radial-gradient(circle at 50% 100%, rgba(34, 197, 94, 0.12) 0%, transparent 30%),
     linear-gradient(145deg, var(--bg) 0%, var(--bg-strong) 100%);
   min-height: 100vh;
   padding: 20px;
@@ -39,7 +40,7 @@ body {
 .ambient-a {
   width: 260px;
   height: 260px;
-  background: #fde68a;
+  background: rgba(56, 189, 248, 0.45);
   top: -70px;
   right: -60px;
 }
@@ -47,7 +48,7 @@ body {
 .ambient-b {
   width: 300px;
   height: 300px;
-  background: #99f6e4;
+  background: rgba(245, 158, 11, 0.28);
   left: -80px;
   bottom: -80px;
 }
@@ -73,11 +74,11 @@ body {
   margin-top: 8px;
   display: inline-block;
   font-size: 0.82rem;
-  color: var(--muted);
+  color: #c9d7ea;
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .layout {
@@ -94,7 +95,7 @@ body {
   border-radius: 16px;
   padding: 18px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(14px);
 }
 
 h2 {
@@ -127,7 +128,7 @@ input {
   padding: 10px 12px;
   font: inherit;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 select {
@@ -136,16 +137,16 @@ select {
   padding: 10px 12px;
   font: inherit;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 input:focus {
-  outline: 2px solid rgba(15, 118, 110, 0.25);
+  outline: 2px solid rgba(56, 189, 248, 0.3);
   border-color: var(--accent);
 }
 
 select:focus {
-  outline: 2px solid rgba(15, 118, 110, 0.25);
+  outline: 2px solid rgba(56, 189, 248, 0.3);
   border-color: var(--accent);
 }
 
@@ -169,18 +170,18 @@ select:focus {
 
 .btn-primary {
   margin-top: 14px;
-  background: linear-gradient(140deg, var(--accent), #0e9f93);
-  color: white;
+  background: linear-gradient(140deg, var(--accent), #2563eb);
+  color: #03111f;
 }
 
 .btn-light {
-  background: #edf2f7;
-  color: #1f2937;
+  background: rgba(30, 41, 59, 0.95);
+  color: #e2e8f0;
   margin-right: 6px;
 }
 
 .btn-danger {
-  background: #fee2e2;
+  background: rgba(127, 29, 29, 0.35);
   color: var(--danger);
 }
 
@@ -212,7 +213,7 @@ select:focus {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(15, 23, 42, 0.62);
 }
 
 .mapping-field label {
@@ -222,11 +223,11 @@ select:focus {
 }
 
 .csv-result.success {
-  color: #166534;
+  color: #4ade80;
 }
 
 .csv-result.error {
-  color: #b91c1c;
+  color: #fca5a5;
 }
 
 .list-header {
@@ -251,7 +252,7 @@ select:focus {
 .stat {
   border-radius: 12px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(15, 23, 42, 0.72);
   border: 1px solid var(--border);
 }
 
@@ -278,9 +279,13 @@ td {
   border-bottom: 1px solid var(--border);
 }
 
+td {
+  color: #d9e5f7;
+}
+
 th {
   font-size: 0.88rem;
-  color: var(--muted);
+  color: #a8bbd4;
   font-weight: 700;
 }
 

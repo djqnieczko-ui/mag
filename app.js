@@ -23,8 +23,8 @@ const dataMode = document.getElementById("data-mode");
 
 const TARGET_FIELDS = [
   { key: "department", label: "Dział" },
-  { key: "producer", label: "Producent" },
   { key: "category", label: "Kategoria" },
+  { key: "producer", label: "Producent" },
   { key: "name", label: "Nazwa" },
   { key: "weight", label: "Waga (kg)" },
   { key: "quantity", label: "Ilość" },
@@ -415,8 +415,8 @@ function renderRows() {
   for (const item of filtered) {
     const row = rowTemplate.content.cloneNode(true);
     row.querySelector('[data-field="department"]').textContent = item.department;
-    row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="category"]').textContent = item.category;
+    row.querySelector('[data-field="producer"]').textContent = item.producer;
     row.querySelector('[data-field="name"]').textContent = item.name;
     row.querySelector('[data-field="weight"]').textContent = item.weight.toFixed(2);
     row.querySelector('[data-field="quantity"]').textContent = item.quantity;

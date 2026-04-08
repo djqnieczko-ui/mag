@@ -49,14 +49,14 @@
             </select>
           </label>
           <label>
-            Producent
-            <input type="text" id="producer" required placeholder="np. Yamaha" />
-          </label>
-          <label>
             Kategoria
             <select id="category" required>
               <option value="">Najpierw wybierz dział</option>
             </select>
+          </label>
+          <label>
+            Producent
+            <input type="text" id="producer" required placeholder="np. Yamaha" />
           </label>
           <label>
             Nazwa
@@ -82,7 +82,7 @@
     <section class="card list-card">
       <div class="list-header">
         <h2>Lista pozycji</h2>
-        <input id="search" type="search" placeholder="Szukaj: dzial, producent, kategoria, nazwa, kod" />
+        <input id="search" type="search" placeholder="Szukaj: dzial, kategoria, producent, nazwa, kod" />
       </div>
 
       <div class="stats" id="stats"></div>
@@ -92,8 +92,8 @@
           <thead>
             <tr>
               <th>Dział</th>
-              <th>Producent</th>
               <th>Kategoria</th>
+              <th>Producent</th>
               <th>Nazwa</th>
               <th>Waga (kg)</th>
               <th>Ilość</th>
@@ -110,8 +110,8 @@
   <template id="row-template">
     <tr>
       <td data-field="department"></td>
-      <td data-field="producer"></td>
       <td data-field="category"></td>
+      <td data-field="producer"></td>
       <td data-field="name"></td>
       <td data-field="weight"></td>
       <td data-field="quantity"></td>
