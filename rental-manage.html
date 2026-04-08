@@ -67,14 +67,20 @@
       </div>
       <div class="stats" id="orders-stats"></div>
       <div class="list-header">
-        <input id="orders-search" type="search" placeholder="Szukaj: kontrahent, kontakt, uwagi" />
+        <input id="orders-search" type="search" placeholder="Szukaj: firma, NIP, ulica, kod, miejscowosc, telefon, email, uwagi" />
       </div>
       <div class="table-wrap">
-        <table>
+        <table class="rental-manage-table">
           <thead>
             <tr>
               <th>Data</th>
-              <th>Kontrahent</th>
+              <th>Nazwa firmy</th>
+              <th>NIP</th>
+              <th>Ulica</th>
+              <th>Kod pocztowy</th>
+              <th>Miejscowosc</th>
+              <th>Telefon</th>
+              <th>Email</th>
               <th>Zwrot</th>
               <th>Dni do zwrotu</th>
               <th>Status</th>
@@ -92,7 +98,13 @@
   <template id="order-row-template">
     <tr>
       <td data-field="createdAt"></td>
-      <td data-field="contractor"></td>
+      <td data-field="contractorName"></td>
+      <td data-field="contractorNip"></td>
+      <td data-field="contractorStreet"></td>
+      <td data-field="contractorPostalCode"></td>
+      <td data-field="contractorCity"></td>
+      <td data-field="contractorPhone"></td>
+      <td data-field="contractorEmail"></td>
       <td data-field="returnDate"></td>
       <td data-field="daysToReturn"></td>
       <td><span data-field="status"></span></td>

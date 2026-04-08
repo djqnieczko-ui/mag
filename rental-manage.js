@@ -51,6 +51,49 @@ function formatDate(value) {
   });
 }
 
+function parseContractorContact(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return { nip: "", street: "", postalCode: "", city: "" };
+  }
+
+  const parts = raw.split("|").map((part) => part.trim());
+  let nip = "";
+  let addressPart = raw;
+
+  if (parts.length > 1) {
+    nip = parts[0].replace(/^NIP:\s*/i, "").trim();
+    addressPart = parts.slice(1).join(" | ");
+  } else if (/^NIP:\s*/i.test(raw)) {
+    nip = raw.replace(/^NIP:\s*/i, "").trim();
+    addressPart = "";
+  }
+
+  let street = "";
+  let postalCode = "";
+  let city = "";
+
+  const normalizedAddress = String(addressPart || "").replace(/\s+/g, " ").trim();
+  if (normalizedAddress) {
+    const addressMatch = normalizedAddress.match(/^(.*?),\s*([0-9]{2}-[0-9]{3})\s+(.+)$/);
+    if (addressMatch) {
+      street = addressMatch[1].trim();
+      postalCode = addressMatch[2].trim();
+      city = addressMatch[3].trim();
+    } else {
+      street = normalizedAddress;
+      const cityPostalMatch = normalizedAddress.match(/([0-9]{2}-[0-9]{3})\s+(.+)$/);
+      if (cityPostalMatch) {
+        postalCode = cityPostalMatch[1].trim();
+        city = cityPostalMatch[2].trim();
+        street = normalizedAddress.slice(0, cityPostalMatch.index).replace(/,\s*$/, "").trim();
+      }
+    }
+  }
+
+  return { nip, street, postalCode, city };
+}
+
 async function loadBuildVersion() {
   if (!buildVersion) return;
   try {
@@ -77,6 +120,7 @@ function fromOrderRow(row) {
   const borrowedTotalQuantity = Number(
     row.borrowed_total_quantity ?? (outstandingQuantity + returnedQuantity)
   );
+  const parsedContact = parseContractorContact(row.contractor_contact || "");
 
   return {
     id: row.id,
@@ -84,6 +128,10 @@ function fromOrderRow(row) {
     contractorContact: row.contractor_contact || "",
     contractorPhone: row.contractor_phone || "",
     contractorEmail: row.contractor_email || "",
+    contractorNip: parsedContact.nip || "",
+    contractorStreet: parsedContact.street || "",
+    contractorPostalCode: parsedContact.postalCode || "",
+    contractorCity: parsedContact.city || "",
     declaredReturnDate: row.declared_return_date || "",
     actualReturnDate: row.actual_return_date || "",
     settledAt: row.settled_at || "",
@@ -239,7 +287,16 @@ function renderOrdersStats(filteredOrders) {
 function getFilteredOrders() {
   const query = normalizeText(ordersSearch.value);
   return rentalOrders.filter((order) => {
-    const haystack = [order.contractorName, order.contractorContact, order.notes]
+    const haystack = [
+      order.contractorName,
+      order.contractorNip,
+      order.contractorStreet,
+      order.contractorPostalCode,
+      order.contractorCity,
+      order.contractorPhone,
+      order.contractorEmail,
+      order.notes,
+    ]
       .map(normalizeText)
       .join(" ");
     return haystack.includes(query);
@@ -268,7 +325,13 @@ function renderOrdersList() {
     });
 
     row.querySelector('[data-field="createdAt"]').textContent = formatDateTime(order.createdAt);
-    row.querySelector('[data-field="contractor"]').textContent = order.contractorName || "-";
+    row.querySelector('[data-field="contractorName"]').textContent = order.contractorName || "-";
+    row.querySelector('[data-field="contractorNip"]').textContent = order.contractorNip || "-";
+    row.querySelector('[data-field="contractorStreet"]').textContent = order.contractorStreet || "-";
+    row.querySelector('[data-field="contractorPostalCode"]').textContent = order.contractorPostalCode || "-";
+    row.querySelector('[data-field="contractorCity"]').textContent = order.contractorCity || "-";
+    row.querySelector('[data-field="contractorPhone"]').textContent = order.contractorPhone || "-";
+    row.querySelector('[data-field="contractorEmail"]').textContent = order.contractorEmail || "-";
     row.querySelector('[data-field="returnDate"]').textContent = formatDate(order.declaredReturnDate);
     row.querySelector('[data-field="daysToReturn"]').textContent = daysLabel;
     row.querySelector('[data-field="borrowedCount"]').textContent = order.borrowedTotalQuantity;

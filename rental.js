@@ -204,14 +204,12 @@ function renderSelectedContractorSummary() {
     return;
   }
 
-  const address = [selectedContractor.street, selectedContractor.postal_code, selectedContractor.city]
-    .filter(Boolean)
-    .join(", ");
-
   selectedContractorSummary.innerHTML = [
     ["Nazwa firmy", selectedContractor.name || "-"],
     ["NIP", selectedContractor.nip || "-"],
-    ["Adres", address || "-"],
+    ["Ulica", selectedContractor.street || "-"],
+    ["Kod pocztowy", selectedContractor.postal_code || "-"],
+    ["Miejscowosc", selectedContractor.city || "-"],
     ["Telefon", selectedContractor.phone || "-"],
     ["Email", selectedContractor.email || "-"],
   ]
@@ -247,6 +245,8 @@ function renderContractorPicker() {
     const row = contractorPickerRowTemplate.content.cloneNode(true);
     row.querySelector('[data-field="name"]').textContent = contractor.name || "-";
     row.querySelector('[data-field="nip"]').textContent = contractor.nip || "-";
+    row.querySelector('[data-field="street"]').textContent = contractor.street || "-";
+    row.querySelector('[data-field="postalCode"]').textContent = contractor.postal_code || "-";
     row.querySelector('[data-field="city"]').textContent = contractor.city || "-";
     row.querySelector('[data-field="phone"]').textContent = contractor.phone || "-";
     row.querySelector('[data-field="email"]').textContent = contractor.email || "-";

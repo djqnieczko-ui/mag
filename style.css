@@ -527,6 +527,10 @@ th {
   padding-right: 72px;
 }
 
+.rental-manage-table {
+  min-width: 1400px;
+}
+
 .cell-copy-value {
   display: inline-block;
   max-width: 100%;
