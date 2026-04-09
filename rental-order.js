@@ -554,7 +554,8 @@ function toggleOrderActions(order) {
   deleteOrderButton.disabled = !isSelected;
   saveOrderChangesButton.disabled = !isSelected || isReturned || isSettled;
   receiveReturnButton.disabled = !isSelected || isSettled;
-  receiveReturnButton.textContent = isReturned ? "Rozliczono" : "Przyjmij zwrot";
+  receiveReturnButton.textContent = isReturned ? "Rozlicz WZ" : "Przyjmij zwrot";
+  receiveReturnButton.style.display = isSettled ? "none" : "";
   inventoryAddSearch.disabled = !isSelected || isReturned || isSettled;
 
   if (selectedItemsActionsHeader) {
