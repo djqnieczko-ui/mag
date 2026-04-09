@@ -389,6 +389,7 @@ function addToDraft(item) {
     if (existing.rentQuantity >= existing.availableQuantity) {
       rentalResult.textContent = `Brak większej dostępnej ilości dla ${item.name}.`;
       rentalResult.className = "csv-result error";
+      rentalResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
     existing.rentQuantity += 1;
@@ -402,6 +403,7 @@ function addToDraft(item) {
 
   rentalResult.textContent = `Dodano pomyślnie: ${item.name}`;
   rentalResult.className = "csv-result success";
+  rentalResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
   renderDraft();
 }
 
