@@ -385,6 +385,13 @@ function getDraftEntry(deviceCode) {
 
 function addToDraft(item) {
   const existing = getDraftEntry(item.deviceCode);
+  const newQuantity = existing ? existing.rentQuantity + 1 : 1;
+  
+  const confirmMsg = `Czy na pewno dodać do WZ:\n${item.name}\n(kod: ${item.deviceCode})\nilość: ${newQuantity}?`;
+  if (!window.confirm(confirmMsg)) {
+    return;
+  }
+  
   if (existing) {
     if (existing.rentQuantity >= existing.availableQuantity) {
       rentalResult.textContent = `Brak większej dostępnej ilości dla ${item.name}.`;
