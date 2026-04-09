@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Dane po NIP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Wyszukiwanie danych firmy po numerze NIP</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab">Zarzadzanie</a>
+        <a href="rental.html" class="nav-tab">Nowe wypozyczenie</a>
+        <a href="rental-manage.html" class="nav-tab">Listy wynajmu</a>
+        <a href="contractors.html" class="nav-tab">Kontrahenci</a>
+        <a href="dane.html" class="nav-tab nav-tab-active">Dane</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: MF Wykaz VAT</div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card data-lookup-card">
+      <div class="section-header">
+        <div>
+          <h2>Wyszukaj po NIP</h2>
+          <p class="muted">Strona pobiera komplet danych z publicznego wykazu VAT Ministerstwa Finansow i pokazuje dodatkowe oficjalne zrodla do dalszej weryfikacji.</p>
+        </div>
+      </div>
+
+      <form id="nip-form" class="lookup-form">
+        <label class="grid-span-2">
+          Numer NIP
+          <input type="search" id="company-nip" inputmode="numeric" autocomplete="off" placeholder="np. 5260250274" maxlength="13" />
+        </label>
+        <div class="lookup-actions">
+          <button type="submit" class="btn btn-primary" id="search-company">Szukaj</button>
+        </div>
+      </form>
+
+      <div id="lookup-result" class="csv-result"></div>
+    </section>
+
+    <section class="card" id="company-summary-card" hidden>
+      <div class="section-header">
+        <div>
+          <h2 id="company-title">Dane podmiotu</h2>
+          <p class="muted" id="company-meta">Wynik wyszukiwania</p>
+        </div>
+      </div>
+      <div class="stats" id="company-stats"></div>
+      <div class="detail-summary" id="company-details"></div>
+    </section>
+
+    <section class="card" id="company-lists-card" hidden>
+      <div class="section-header">
+        <div>
+          <h2>Rachunki i osoby</h2>
+          <p class="muted">Dane pochodza bezposrednio z odpowiedzi publicznego rejestru MF.</p>
+        </div>
+      </div>
+
+      <div class="lookup-columns">
+        <div>
+          <h3>Rachunki bankowe</h3>
+          <div id="bank-accounts" class="lookup-list"></div>
+        </div>
+        <div>
+          <h3>Reprezentanci</h3>
+          <div id="representatives" class="lookup-list"></div>
+        </div>
+        <div>
+          <h3>Prokurenci</h3>
+          <div id="authorized-clerks" class="lookup-list"></div>
+        </div>
+        <div>
+          <h3>Wspolnicy</h3>
+          <div id="partners" class="lookup-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="company-raw-card" hidden>
+      <div class="section-header">
+        <div>
+          <h2>Pelne dane z rejestru MF</h2>
+          <p class="muted">Kazde pole z odpowiedzi API jest pokazane ponizej.</p>
+        </div>
+      </div>
+      <div class="detail-summary" id="company-raw-details"></div>
+    </section>
+
+    <section class="card" id="sources-card">
+      <div class="section-header">
+        <div>
+          <h2>Zrodla oficjalne</h2>
+          <p class="muted">Bez dodatkowego backendu i kluczy API aplikacja moze bezposrednio pobrac dane z MF. Pozostale rejestry sa podane jako oficjalne miejsca do dalszej weryfikacji.</p>
+        </div>
+      </div>
+
+      <div class="detail-summary" id="source-status"></div>
+      <div class="source-links" id="source-links"></div>
+    </section>
+  </main>
+
+  <script src="dane.js"></script>
+</body>
+</html>
