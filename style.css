@@ -415,6 +415,7 @@ select:focus {
   margin-top: 4px;
   font-family: "Space Grotesk", sans-serif;
   font-size: 1.1rem;
+  overflow-wrap: anywhere;
 }
 
 .stats {
@@ -657,6 +658,10 @@ th {
   margin: 0;
   color: #d9e5f7;
   white-space: pre-wrap;
+}
+
+.contractor-contact-summary {
+  margin: 18px 0;
 }
 
 @media (max-width: 768px) {

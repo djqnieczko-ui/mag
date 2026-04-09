@@ -6,6 +6,7 @@ const dataMode = document.getElementById("data-mode");
 const contractorTitle = document.getElementById("contractor-title");
 const contractorMeta = document.getElementById("contractor-meta");
 const contractorSummary = document.getElementById("contractor-summary");
+const contractorContactSummary = document.getElementById("contractor-contact-summary");
 const contractorNotesSection = document.getElementById("contractor-notes-section");
 const contractorNotes = document.getElementById("contractor-notes");
 const contractorOrdersBody = document.getElementById("contractor-orders-body");
@@ -291,6 +292,11 @@ function renderContractorSummary() {
     ["Ulica", selectedContractor.street || "-"],
     ["Kod pocztowy", selectedContractor.postal_code || "-"],
     ["Miejscowosc", selectedContractor.city || "-"],
+  ]
+    .map(([label, value]) => `<div class="detail-chip"><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
+
+  contractorContactSummary.innerHTML = [
     ["Telefon", selectedContractor.phone || "-"],
     ["Email", selectedContractor.email || "-"],
     ["WZ", `${relatedOrders.length}/${returnedCount}/${inProgressCount}/${overdueCount}`],
