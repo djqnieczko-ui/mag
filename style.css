@@ -359,6 +359,43 @@ select:focus {
   color: #fca5a5;
 }
 
+.toast-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  z-index: 10000;
+  min-width: 300px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.toast-notification.success {
+  background-color: #10b981;
+  color: white;
+}
+
+.toast-notification.error {
+  background-color: #ef4444;
+  color: white;
+}
+
 .list-header {
   display: flex;
   align-items: center;

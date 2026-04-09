@@ -379,6 +379,20 @@ function getFilteredInventory() {
     .sort((a, b) => a.name.localeCompare(b.name, "pl"));
 }
 
+function showToast(message, type = "success") {
+  const toast = document.createElement("div");
+  toast.className = `toast-notification ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(-50%) translateY(-20px)";
+    toast.style.transition = "all 0.3s ease-out";
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 function getDraftEntry(deviceCode) {
   return rentalDraft.find((item) => item.deviceCode === deviceCode);
 }
@@ -387,9 +401,7 @@ function addToDraft(item) {
   const existing = getDraftEntry(item.deviceCode);
   if (existing) {
     if (existing.rentQuantity >= existing.availableQuantity) {
-      rentalResult.textContent = `Brak większej dostępnej ilości dla ${item.name}.`;
-      rentalResult.className = "csv-result error";
-      rentalResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      showToast(`Brak większej dostępnej ilości dla ${item.name}.`, "error");
       return;
     }
     existing.rentQuantity += 1;
@@ -401,9 +413,7 @@ function addToDraft(item) {
     });
   }
 
-  rentalResult.textContent = `Dodano pomyślnie: ${item.name}`;
-  rentalResult.className = "csv-result success";
-  rentalResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  showToast(`Dodano pomyślnie: ${item.name}`);
   renderDraft();
 }
 
