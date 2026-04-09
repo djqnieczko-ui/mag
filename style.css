@@ -242,14 +242,6 @@ label {
   pointer-events: auto;
 }
 
-.field-action-btn:hover {
-  transform: translateY(-50%);
-}
-
-.field-action-btn:active {
-  transform: translateY(-50%);
-}
-
 input {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -294,6 +286,11 @@ select:focus {
 
 .btn:active {
   transform: translateY(0);
+}
+
+.field-action-btn:hover,
+.field-action-btn:active {
+  transform: translateY(-50%);
 }
 
 .btn-primary {
