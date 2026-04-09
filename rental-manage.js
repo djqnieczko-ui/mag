@@ -393,15 +393,9 @@ function renderOrdersList() {
     row.querySelector('[data-field="createdAt"]').textContent = formatDateTime(order.createdAt);
     row.querySelector('[data-field="contractorName"]').textContent = order.contractorName || "-";
     row.querySelector('[data-field="contractorNip"]').textContent = order.contractorNip || "-";
-    row.querySelector('[data-field="contractorStreet"]').textContent = order.contractorStreet || "-";
-    row.querySelector('[data-field="contractorPostalCode"]').textContent = order.contractorPostalCode || "-";
-    row.querySelector('[data-field="contractorCity"]').textContent = order.contractorCity || "-";
     row.querySelector('[data-field="contractorPhone"]').textContent = order.contractorPhone || "-";
-    row.querySelector('[data-field="contractorEmail"]').textContent = order.contractorEmail || "-";
     row.querySelector('[data-field="returnDate"]').textContent = formatDate(order.declaredReturnDate);
     row.querySelector('[data-field="daysToReturn"]').textContent = daysLabel;
-    row.querySelector('[data-field="borrowedCount"]').textContent = order.borrowedTotalQuantity;
-    row.querySelector('[data-field="returnedCount"]').textContent = order.returnedQuantity;
     row.querySelector('[data-field="status"]').replaceWith(badge);
     openLink.href = `rental-order.html?id=${encodeURIComponent(order.id)}`;
     openLink.addEventListener("click", (event) => {
