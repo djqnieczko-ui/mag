@@ -237,7 +237,17 @@ label {
 .field-with-action:hover .field-action-btn,
 .field-with-action:focus-within .field-action-btn {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: auto;
+}
+
+.field-action-btn:hover {
+  transform: translateY(-50%);
+}
+
+.field-action-btn:active {
+  transform: translateY(-50%);
 }
 
 input {
