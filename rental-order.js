@@ -42,6 +42,7 @@ let hasRentalMetricsColumns = true;
 let hasRentalItemReturnColumns = true;
 let hasSettlementColumn = true;
 let hasContractorIdColumn = true;
+let hasWzNumberColumn = true;
 let inventoryItems = [];
 let rentalOrders = [];
 let selectedOrderId = null;
@@ -259,6 +260,7 @@ function fromOrderRow(row) {
 
   return {
     id: row.id,
+    wzNumber: row.wz_number || "",
     contractorId: row.contractor_id || relation?.id || null,
     contractorName: relation?.name || row.contractor_name || "",
     contractorContact: row.contractor_contact || "",
@@ -313,10 +315,11 @@ async function fetchRentalOrders() {
   const contractorRelation = hasContractorIdColumn
     ? ", contractor:contractors(id, name, nip, street, postal_code, city, phone, email)"
     : "";
+  const wzNumberField = hasWzNumberColumn ? "wz_number, " : "";
 
   const selectFields = hasRentalMetricsColumns
-    ? `id, contractor_id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})${contractorRelation}`
-    : `id, contractor_id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(${itemSelectFields})${contractorRelation}`;
+    ? `id, ${wzNumberField}contractor_id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}borrowed_total_quantity, returned_quantity, notes, created_at, rental_order_items(${itemSelectFields})${contractorRelation}`
+    : `id, ${wzNumberField}contractor_id, contractor_name, contractor_contact, contractor_phone, contractor_email, declared_return_date, actual_return_date, ${hasSettlementColumn ? "settled_at, " : ""}notes, created_at, rental_order_items(${itemSelectFields})${contractorRelation}`;
 
   const { data, error } = await supabaseClient
     .from(RENTAL_ORDERS_TABLE)
@@ -344,6 +347,25 @@ async function detectContractorIdColumn() {
   }
 
   throw new Error(`Błąd sprawdzania powiazania kontrahenta: ${error.message}`);
+}
+
+async function detectWzNumberColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, wz_number")
+    .limit(1);
+
+  if (!error) {
+    hasWzNumberColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /wz_number/i.test(error.message)) {
+    hasWzNumberColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumny numeru WZ: ${error.message}`);
 }
 
 async function detectRentalItemReturnColumns() {
@@ -522,7 +544,7 @@ function renderSelectedOrderHeader(order) {
   const missingTotal = Math.max(0, borrowedTotal - returnedTotal);
   const days = status.days === null ? "-" : status.days;
 
-  selectedOrderMeta.textContent = `Dokument z ${formatDateTime(order.createdAt)} • ID: ${order.id}`;
+  selectedOrderMeta.textContent = `${order.wzNumber ? order.wzNumber + " • " : ""}Dokument z ${formatDateTime(order.createdAt)} • ID: ${order.id}`;
   selectedOrderStatus.textContent = status.label;
   selectedOrderStatus.className = `status-badge status-${status.tone}`;
   selectedOrderSummary.innerHTML = [
@@ -1334,6 +1356,7 @@ async function init() {
     await detectSettlementColumn();
     await detectRentalMetricsColumns();
     await detectRentalItemReturnColumns();
+    await detectWzNumberColumn();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns

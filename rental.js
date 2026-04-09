@@ -39,6 +39,7 @@ let hasRentalMetricsColumns = true;
 let hasRentalItemReturnColumns = true;
 let hasContractorsTable = true;
 let hasContractorIdColumn = true;
+let hasWzNumberColumn = true;
 let contractors = [];
 let selectedContractor = null;
 
@@ -145,6 +146,40 @@ async function detectContractorIdColumn() {
   }
 
   throw new Error(`Błąd sprawdzania powiazania kontrahenta: ${error.message}`);
+}
+
+async function detectWzNumberColumn() {
+  const { error } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id, wz_number")
+    .limit(1);
+
+  if (!error) {
+    hasWzNumberColumn = true;
+    return;
+  }
+
+  if (error.code === "42703" || /wz_number/i.test(error.message)) {
+    hasWzNumberColumn = false;
+    return;
+  }
+
+  throw new Error(`Błąd sprawdzania kolumny numeru WZ: ${error.message}`);
+}
+
+async function generateWzNumber() {
+  const now = new Date();
+  const yr = String(now.getFullYear());
+  const mo = String(now.getMonth() + 1).padStart(2, "0");
+  const dy = String(now.getDate()).padStart(2, "0");
+  const prefix = `WZ${yr}/${mo}/${dy}/`;
+
+  const { count } = await supabaseClient
+    .from(RENTAL_ORDERS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .like("wz_number", `${prefix}%`);
+
+  return `${prefix}${(count || 0) + 1}`;
 }
 
 function formatDateTime(value) {
@@ -490,8 +525,10 @@ async function saveRental() {
   }
 
   const totalBorrowedQuantity = rentalDraft.reduce((sum, item) => sum + item.rentQuantity, 0);
+  const wzNumber = hasWzNumberColumn ? await generateWzNumber() : null;
   const orderPayload = {
     ...contractor,
+    ...(wzNumber ? { wz_number: wzNumber } : {}),
     ...(hasRentalMetricsColumns
       ? {
           borrowed_total_quantity: totalBorrowedQuantity,
@@ -598,6 +635,7 @@ async function init() {
     await detectRentalItemReturnColumns();
     await detectContractorIdColumn();
     await detectContractorsTable();
+    await detectWzNumberColumn();
     await detectWarehouseStockColumns();
     renderDataMode(
       hasSplitStockColumns

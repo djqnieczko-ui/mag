@@ -255,3 +255,29 @@ create policy "anon_write_contractors"
   to anon
   using (true)
   with check (true);
+
+-- WZ number column
+alter table public.rental_orders add column if not exists wz_number text;
+
+-- Backfill wz_number for existing rows (per-day sequential, ordered by created_at)
+with numbered as (
+  select
+    id,
+    to_char(created_at at time zone 'UTC', 'YYYY') as yr,
+    to_char(created_at at time zone 'UTC', 'MM') as mo,
+    to_char(created_at at time zone 'UTC', 'DD') as dy,
+    row_number() over (
+      partition by date_trunc('day', created_at at time zone 'UTC')
+      order by created_at
+    ) as seq
+  from public.rental_orders
+  where wz_number is null
+)
+update public.rental_orders r
+set wz_number = 'WZ' || n.yr || '/' || n.mo || '/' || n.dy || '/' || n.seq
+from numbered n
+where r.id = n.id;
+
+create unique index if not exists rental_orders_wz_number_unique_idx
+  on public.rental_orders (wz_number)
+  where wz_number is not null;
