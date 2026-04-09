@@ -385,13 +385,6 @@ function getDraftEntry(deviceCode) {
 
 function addToDraft(item) {
   const existing = getDraftEntry(item.deviceCode);
-  const newQuantity = existing ? existing.rentQuantity + 1 : 1;
-  
-  const confirmMsg = `Czy na pewno dodać do WZ:\n${item.name}\n(kod: ${item.deviceCode})\nilość: ${newQuantity}?`;
-  if (!window.confirm(confirmMsg)) {
-    return;
-  }
-  
   if (existing) {
     if (existing.rentQuantity >= existing.availableQuantity) {
       rentalResult.textContent = `Brak większej dostępnej ilości dla ${item.name}.`;
@@ -407,8 +400,8 @@ function addToDraft(item) {
     });
   }
 
-  rentalResult.textContent = "";
-  rentalResult.className = "csv-result";
+  rentalResult.textContent = `Dodano pomyślnie: ${item.name}`;
+  rentalResult.className = "csv-result success";
   renderDraft();
 }
 
