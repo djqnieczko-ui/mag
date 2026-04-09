@@ -68,6 +68,19 @@
       <div class="stats" id="orders-stats"></div>
       <div class="list-header">
         <input id="orders-search" type="search" placeholder="Szukaj: firma, NIP, ulica, kod, miejscowosc, telefon, email, uwagi" />
+        <label>
+          Status
+          <select id="orders-status-filter">
+            <option value="all">Wszystkie</option>
+            <option value="settled">Rozliczono</option>
+            <option value="returned">Zwrocone</option>
+            <option value="partial">Czesciowy zwrot</option>
+            <option value="overdue">Po terminie</option>
+            <option value="today">Zwrot dzisiaj</option>
+            <option value="ok">W terminie</option>
+            <option value="neutral">Brak terminu</option>
+          </select>
+        </label>
       </div>
       <div class="table-wrap">
         <table class="rental-manage-table">

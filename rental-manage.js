@@ -6,6 +6,7 @@ const buildVersion = document.getElementById("build-version");
 const dataMode = document.getElementById("data-mode");
 const ordersStats = document.getElementById("orders-stats");
 const ordersSearch = document.getElementById("orders-search");
+const ordersStatusFilter = document.getElementById("orders-status-filter");
 const ordersBody = document.getElementById("orders-body");
 const orderRowTemplate = document.getElementById("order-row-template");
 const orderResult = document.getElementById("order-result");
@@ -345,7 +346,13 @@ function renderOrdersStats(filteredOrders) {
 
 function getFilteredOrders() {
   const query = normalizeText(ordersSearch.value);
+  const statusFilter = ordersStatusFilter?.value || "all";
   return rentalOrders.filter((order) => {
+    const orderStatus = getOrderStatus(order);
+    if (statusFilter !== "all" && orderStatus.tone !== statusFilter) {
+      return false;
+    }
+
     const haystack = [
       order.contractorName,
       order.contractorNip,
@@ -413,6 +420,7 @@ async function refreshData() {
 }
 
 ordersSearch.addEventListener("input", renderOrdersList);
+ordersStatusFilter?.addEventListener("change", renderOrdersList);
 
 async function init() {
   loadBuildVersion();
