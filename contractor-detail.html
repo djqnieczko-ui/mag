@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magazyn - Szczegoly kontrahenta</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1>Magazyn</h1>
+        <p>Szczegoly kontrahenta i powiazane dokumenty WZ</p>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab">Stan magazynu</a>
+        <a href="manage.html" class="nav-tab">Zarzadzanie</a>
+        <a href="rental.html" class="nav-tab">Nowe wypozyczenie</a>
+        <a href="rental-manage.html" class="nav-tab">Listy wynajmu</a>
+        <a href="contractors.html" class="nav-tab nav-tab-active">Kontrahenci</a>
+      </nav>
+    </div>
+    <div class="topbar-meta">
+      <div id="build-version" class="build-version">Wersja: lokalna</div>
+      <div id="data-mode" class="build-version">Dane: Supabase (cloud)</div>
+    </div>
+  </header>
+
+  <main class="layout contractors-layout">
+    <section class="card contractors-card">
+      <a href="contractors.html" class="back-link">Powrot do listy kontrahentow</a>
+      <div class="section-header">
+        <div>
+          <h2 id="contractor-title">Szczegoly kontrahenta</h2>
+          <p class="muted" id="contractor-meta">Ladowanie danych kontrahenta...</p>
+        </div>
+      </div>
+
+      <div class="detail-summary" id="contractor-summary"></div>
+
+      <section id="contractor-notes-section" class="detail-note-section">
+        <h3>Uwagi</h3>
+        <p id="contractor-notes" class="detail-note-text">-</p>
+      </section>
+
+      <div class="section-header contractor-related-header">
+        <div>
+          <h3>Powiazane dokumenty WZ</h3>
+          <p class="muted">Lista dokumentow przypisanych do wybranego kontrahenta.</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="contractor-related-orders-table">
+          <thead>
+            <tr>
+              <th>Data utworzenia</th>
+              <th>Termin zwrotu</th>
+              <th>Status</th>
+              <th>Wypozyczono</th>
+              <th>Zwrocono</th>
+              <th>Akcja</th>
+            </tr>
+          </thead>
+          <tbody id="contractor-orders-body"></tbody>
+        </table>
+      </div>
+      <div id="contractor-orders-empty" class="muted">Brak dokumentow WZ dla tego kontrahenta.</div>
+      <div id="contractor-detail-result" class="csv-result"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="contractor-detail.js"></script>
+</body>
+</html>

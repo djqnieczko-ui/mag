@@ -351,15 +351,31 @@ function renderContractorsTable() {
     const row = contractorRowTemplate.content.cloneNode(true);
     setCopyCell(row, "name", rowData.name);
     setCopyCell(row, "nip", rowData.nip || "-");
-    setCopyCell(row, "street", rowData.street || "-");
-    setCopyCell(row, "postalCode", rowData.postalCode || "-");
-    setCopyCell(row, "city", rowData.city || "-");
-    setCopyCell(row, "phone", rowData.phone || "-");
-    setCopyCell(row, "email", rowData.email || "-");
-    setCopyCell(row, "wzSummary", `${rowData.allCount}/${rowData.returnedCount}/${rowData.inProgressCount}/${rowData.overdueCount}`);
+
+    const wzSummaryCell = row.querySelector('[data-field="wzSummary"]');
+    if (wzSummaryCell) {
+      wzSummaryCell.textContent = `${rowData.allCount}/${rowData.returnedCount}/${rowData.inProgressCount}/${rowData.overdueCount}`;
+    }
 
     const actionsCell = row.querySelector('[data-field="actions"]');
     if (actionsCell) {
+      if (rowData.id || rowData.name) {
+        const detailsButton = document.createElement("button");
+        detailsButton.type = "button";
+        detailsButton.className = "btn btn-light";
+        detailsButton.textContent = "Szczegoly";
+        detailsButton.addEventListener("click", () => {
+          const params = new URLSearchParams();
+          if (rowData.id) {
+            params.set("id", rowData.id);
+          } else {
+            params.set("name", rowData.name);
+          }
+          window.location.href = `contractor-detail.html?${params.toString()}`;
+        });
+        actionsCell.appendChild(detailsButton);
+      }
+
       if (rowData.id) {
         const editButton = document.createElement("button");
         editButton.type = "button";
@@ -369,7 +385,9 @@ function renderContractorsTable() {
           openContractorModal("edit", rowData.id);
         });
         actionsCell.appendChild(editButton);
-      } else {
+      }
+
+      if (!rowData.id && !rowData.name) {
         actionsCell.textContent = "-";
       }
     }
