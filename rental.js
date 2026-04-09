@@ -265,11 +265,6 @@ function renderContractorPicker() {
     const row = contractorPickerRowTemplate.content.cloneNode(true);
     row.querySelector('[data-field="name"]').textContent = contractor.name || "-";
     row.querySelector('[data-field="nip"]').textContent = contractor.nip || "-";
-    row.querySelector('[data-field="street"]').textContent = contractor.street || "-";
-    row.querySelector('[data-field="postalCode"]').textContent = contractor.postal_code || "-";
-    row.querySelector('[data-field="city"]').textContent = contractor.city || "-";
-    row.querySelector('[data-field="phone"]').textContent = contractor.phone || "-";
-    row.querySelector('[data-field="email"]').textContent = contractor.email || "-";
     row.querySelector('[data-action="select-contractor"]').addEventListener("click", () => {
       selectedContractor = contractor;
       renderSelectedContractorSummary();
